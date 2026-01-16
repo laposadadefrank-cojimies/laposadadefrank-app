@@ -1,4 +1,8 @@
 [build]
+  # Esta línea le dice a Netlify que entre en tu subcarpeta de proyecto
+  base = "hotel-booking-app"
+  
+  # Estos comandos ahora se ejecutarán DENTRO de hotel-booking-app
   command = "npm run build"
   publish = ".next"
 
