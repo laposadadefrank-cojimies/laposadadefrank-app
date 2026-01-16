@@ -1,12 +1,16 @@
-[build]
-  base = "hotel-booking-app"
-  command = "npm run build"
-  publish = ".next"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-[build.environment]
-  NODE_VERSION = "20"
+$path = "C:\Sistemas\pERSONAL\laposadadefrank-app\netlify.toml"
+$config = @(
+    '[build]',
+    '  base = "hotel-booking-app"',
+    '  command = "npm run build"',
+    '  publish = ".next"',
+    '',
+    '[[redirects]]',
+    '  from = "/*"',
+    '  to = "/index.html"',
+    '  status = 200',
+    '',
+    '[build.environment]',
+    '  NODE_VERSION = "20"'
+)
+[System.IO.File]::WriteAllLines($path, $config)
