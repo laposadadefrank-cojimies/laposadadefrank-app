@@ -1,0 +1,7 @@
+﻿[build]
+  base = "hotel-booking-app"
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
