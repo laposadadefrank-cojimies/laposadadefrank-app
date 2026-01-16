@@ -28,6 +28,7 @@ export async function middleware(request: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession()
 
+  // Proteger rutas de administración
   if (!session && (request.nextUrl.pathname.startsWith('/calendar') || request.nextUrl.pathname.startsWith('/rooms'))) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
