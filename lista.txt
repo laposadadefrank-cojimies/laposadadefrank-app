@@ -1,5 +1,0 @@
-.env.local.txt
-hotel-booking-app
-lista.txt
-netlify.toml
-Proyecto la posada de Frank.docx
