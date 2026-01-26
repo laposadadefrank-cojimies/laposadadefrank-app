@@ -1,29 +1,36 @@
-﻿import Link from 'next/link'
+﻿'use client'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { supabase } from '../lib/supabase'
 
-export default function DashboardPage() {
+export default function Dashboard() {
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
+  }
+
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col items-center p-8">
-      <div className="w-full max-w-4xl">
-        <div className="flex justify-between items-center mb-12">
-          <h1 className="text-3xl font-extrabold text-green-700">Panel de Administración</h1>
-          <Link href="/" className="text-sm text-gray-500 hover:text-red-500 font-bold">Cerrar Sesión</Link>
-        </div>
+    <div className="min-h-screen bg-gray-100">
+      <nav className="bg-green-800 text-white p-4 flex justify-between items-center shadow-lg">
+        <h1 className="text-xl font-bold">La Posada de Frank - Administración</h1>
+        <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded font-bold transition">Cerrar Sesión</button>
+      </nav>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Usamos rutas relativas sin la barra inicial para evitar confusiones de base directory */}
-          <Link href="calendar" className="group bg-white p-10 rounded-2xl shadow-sm border hover:shadow-xl transition-all text-center">
-            <div className="text-5xl mb-4">📅</div>
-            <h2 className="text-2xl font-bold text-gray-800">Calendario</h2>
-            <p className="text-gray-500 mt-2">Gestionar reservas</p>
-          </Link>
+      <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <Link href="/calendar" className="bg-white p-10 rounded-2xl shadow-xl hover:scale-105 transition transform flex flex-col items-center border-t-4 border-blue-500">
+          <span className="text-6xl mb-4">📅</span>
+          <span className="text-2xl font-bold text-gray-800">Calendario</span>
+          <p className="text-gray-500 mt-2">Ver y crear reservas</p>
+        </Link>
 
-          <Link href="rooms" className="group bg-white p-10 rounded-2xl shadow-sm border hover:shadow-xl transition-all text-center">
-            <div className="text-5xl mb-4">🏨</div>
-            <h2 className="text-2xl font-bold text-gray-800">Habitaciones</h2>
-            <p className="text-gray-500 mt-2">Configurar precios</p>
-          </Link>
-        </div>
+        <Link href="/rooms" className="bg-white p-10 rounded-2xl shadow-xl hover:scale-105 transition transform flex flex-col items-center border-t-4 border-green-500">
+          <span className="text-6xl mb-4">🏨</span>
+          <span className="text-2xl font-bold text-gray-800">Habitaciones</span>
+          <p className="text-gray-500 mt-2">Precios y capacidades</p>
+        </Link>
       </div>
-    </main>
+    </div>
   )
 }
