@@ -1,38 +1,35 @@
 ﻿'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-export default function RegisterPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
+export default function PaginaReservas() {
+  const [reservas, setReservas] = useState<any[]>([])
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    const { error } = await supabase.auth.signUp({ email, password })
-    if (error) {
-      alert("Error: " + error.message)
-    } else {
-      alert("¡Éxito! Confirma tu correo.")
-      router.push('/')
+  useEffect(() => {
+    async function leer() {
+      const { data } = await supabase.from('reservas').select('*')
+      if (data) setReservas(data)
     }
-    setLoading(false)
-  }
+    leer()
+  }, [])
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border-t-4 border-blue-600">
-        <h1 className="text-3xl font-bold mb-6 text-center text-blue-700">Crear Cuenta</h1>
-        <form onSubmit={handleRegister} className="space-y-4">
-          <input type="email" className="w-full border p-3 rounded-lg" placeholder="Email" onChange={(e) => setEmail(e.target.value)} required />
-          <input type="password" className="w-full border p-3 rounded-lg" placeholder="Password" onChange={(e) => setPassword(e.target.value)} required />
-          <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold">Registrarme</button>
-        </form>
+    <div className="p-6 min-h-screen bg-gray-100">
+      <Link href="/dashboard" className="text-blue-600 underline">← Volver</Link>
+      <h1 className="text-3xl font-black my-6">CALENDARIO DE OCUPACIÓN</h1>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {reservas.length > 0 ? reservas.map(res => (
+          <div key={res.id} className="bg-white p-4 rounded-xl shadow-lg border-l-8 border-blue-500">
+            <h2 className="font-bold text-xl">{res.huesped_nombre}</h2>
+            <p className="text-gray-600">📅 {res.fecha_entrada} al {res.fecha_salida}</p>
+            <div className="mt-2 inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-bold">
+              HABITACIÓN: {res.habitacion_id || 'Pendiente'}
+            </div>
+          </div>
+        )) : <p>No hay reservas registradas hoy.</p>}
       </div>
-    </main>
+    </div>
   )
 }

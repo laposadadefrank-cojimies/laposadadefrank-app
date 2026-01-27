@@ -1,65 +1,46 @@
 ﻿'use client'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import Link from 'next/link'
 
-export default function RoomsPage() {
-  const [rooms, setRooms] = useState([])
-  const [formData, setFormData] = useState({ name: '', capacity: 2, price_per_night: 0 })
+export default function PaginaHabitaciones() {
+  const [nombre, setNombre] = useState('')
+  const [precio, setPrecio] = useState('')
+  const [mensaje, setMensaje] = useState('')
 
-  useEffect(() => { fetchRooms() }, [])
-
-  async function fetchRooms() {
-    const { data, error } = await supabase.from('rooms').select('*').order('name')
-    if (data) setRooms(data)
-  }
-
-  async function addRoom(e: React.FormEvent) {
+  const guardarHabitacion = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { error } = await supabase.from('rooms').insert([formData])
-    if (error) alert("Error: " + error.message)
-    else {
-      setFormData({ name: '', capacity: 2, price_per_night: 0 })
-      fetchRooms()
-    }
+    const { error } = await supabase
+      .from('habitaciones')
+      .insert([{ nombre, precio_persona_noche: parseFloat(precio) }])
+
+    if (error) setMensaje("Error al guardar")
+    else setMensaje("¡Habitación guardada con éxito!")
   }
 
   return (
-    <main className="p-8 bg-gray-50 min-h-screen">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-green-700">🏨 Habitaciones de La Posada</h1>
-          <Link href="/dashboard" className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300">Volver al Panel</Link>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <Link href="/dashboard" className="text-blue-600 underline">← Volver</Link>
+      <h1 className="text-2xl font-bold my-4">Gestión de Habitaciones</h1>
+      
+      <form onSubmit={guardarHabitacion} className="bg-white p-6 rounded-xl shadow-md max-w-md">
+        <div className="mb-4">
+          <label className="block text-sm font-medium">Nombre de Habitación</label>
+          <input type="text" className="w-full border p-2 rounded" placeholder="Ej: Suite 101" 
+            onChange={(e) => setNombre(e.target.value)} required />
         </div>
-
-        <form onSubmit={addRoom} className="bg-white p-6 rounded-xl shadow-md mb-8 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          <div>
-            <label className="block text-sm font-bold text-gray-700">Nombre/Número</label>
-            <input className="w-full border p-2 rounded" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Ej: 101" required />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-gray-700">Capacidad</label>
-            <input type="number" className="w-full border p-2 rounded" value={formData.capacity} onChange={e => setFormData({...formData, capacity: parseInt(e.target.value)})} required />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-gray-700">Precio x Noche</label>
-            <input type="number" className="w-full border p-2 rounded" value={formData.price_per_night} onChange={e => setFormData({...formData, price_per_night: parseFloat(e.target.value)})} required />
-          </div>
-          <button type="submit" className="bg-green-600 text-white p-2 rounded font-bold hover:bg-green-700">Guardar</button>
-        </form>
-
-        <div className="grid gap-4">
-          {rooms.map((room: any) => (
-            <div key={room.id} className="bg-white p-4 border rounded-lg flex justify-between items-center shadow-sm">
-              <div>
-                <span className="font-bold text-lg text-gray-800">Habitación {room.name}</span>
-                <p className="text-sm text-gray-500">Capacidad: {room.capacity} personas</p>
-              </div>
-              <span className="font-bold text-xl text-green-600">${room.price_per_night}</span>
-            </div>
-          ))}
+        <div className="mb-4">
+          <label className="block text-sm font-medium">Precio por Persona/Noche ($)</label>
+          <input type="number" className="w-full border p-2 rounded" placeholder="0.00" 
+            onChange={(e) => setPrecio(e.target.value)} required />
         </div>
-      </div>
-    </main>
+        <div className="mb-4">
+          <label className="block text-sm font-medium">Foto de Habitación</label>
+          <input type="file" className="w-full text-sm" accept="image/*" />
+        </div>
+        <button className="w-full bg-green-600 text-white p-2 rounded font-bold">GUARDAR HABITACIÓN</button>
+        {mensaje && <p className="mt-4 text-green-600">{mensaje}</p>}
+      </form>
+    </div>
   )
 }
