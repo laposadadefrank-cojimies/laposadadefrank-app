@@ -6,40 +6,64 @@ import Link from 'next/link'
 export default function PaginaHabitaciones() {
   const [nombre, setNombre] = useState('')
   const [precio, setPrecio] = useState('')
-  const [mensaje, setMensaje] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [subiendo, setSubiendo] = useState(false)
 
-  const guardarHabitacion = async (e: React.FormEvent) => {
+  const guardarTodo = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { error } = await supabase
-      .from('habitaciones')
-      .insert([{ nombre, precio_persona_noche: parseFloat(precio) }])
+    setSubiendo(true)
 
-    if (error) setMensaje("Error al guardar")
-    else setMensaje("¡Habitación guardada con éxito!")
+    let urlPublica = ''
+
+    // 1. Subir imagen si existe
+    if (file) {
+      const fileName = `${Date.now()}-${file.name}`
+      const { data, error: errorSubida } = await supabase.storage
+        .from('fotos-habitaciones')
+        .upload(fileName, file)
+
+      if (data) {
+        const { data: dataUrl } = supabase.storage
+          .from('fotos-habitaciones')
+          .getPublicUrl(fileName)
+        urlPublica = dataUrl.publicUrl
+      }
+    }
+
+    // 2. Guardar en la base de datos
+    const { error } = await supabase.from('habitaciones').insert([
+      { 
+        nombre, 
+        precio_persona_noche: parseFloat(precio), 
+        foto_url: urlPublica 
+      }
+    ])
+
+    setSubiendo(false)
+    if (error) alert("Error al guardar datos")
+    else alert("Habitación creada con éxito")
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <Link href="/dashboard" className="text-blue-600 underline">← Volver</Link>
-      <h1 className="text-2xl font-bold my-4">Gestión de Habitaciones</h1>
+    <div className="p-8 max-w-md mx-auto bg-white shadow-2xl rounded-3xl mt-10 border-t-4 border-green-600">
+      <Link href="/dashboard" className="text-gray-400 hover:text-black mb-4 inline-block">← Volver al panel</Link>
+      <h1 className="text-2xl font-black mb-6 uppercase">Nueva Habitación</h1>
       
-      <form onSubmit={guardarHabitacion} className="bg-white p-6 rounded-xl shadow-md max-w-md">
-        <div className="mb-4">
-          <label className="block text-sm font-medium">Nombre de Habitación</label>
-          <input type="text" className="w-full border p-2 rounded" placeholder="Ej: Suite 101" 
-            onChange={(e) => setNombre(e.target.value)} required />
+      <form onSubmit={guardarTodo} className="space-y-5">
+        <input type="text" placeholder="Nombre (Ej: Suite Matrimonial)" className="w-full p-3 border rounded-xl"
+          onChange={(e) => setNombre(e.target.value)} required />
+        
+        <input type="number" placeholder="Precio por persona/noche" className="w-full p-3 border rounded-xl"
+          onChange={(e) => setPrecio(e.target.value)} required />
+        
+        <div className="border-2 border-dashed p-4 rounded-xl text-center">
+          <label className="block text-sm text-gray-500 mb-2">Foto de la habitación</label>
+          <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
         </div>
-        <div className="mb-4">
-          <label className="block text-sm font-medium">Precio por Persona/Noche ($)</label>
-          <input type="number" className="w-full border p-2 rounded" placeholder="0.00" 
-            onChange={(e) => setPrecio(e.target.value)} required />
-        </div>
-        <div className="mb-4">
-          <label className="block text-sm font-medium">Foto de Habitación</label>
-          <input type="file" className="w-full text-sm" accept="image/*" />
-        </div>
-        <button className="w-full bg-green-600 text-white p-2 rounded font-bold">GUARDAR HABITACIÓN</button>
-        {mensaje && <p className="mt-4 text-green-600">{mensaje}</p>}
+
+        <button disabled={subiendo} className="w-full bg-green-600 text-white p-4 rounded-xl font-bold">
+          {subiendo ? 'GUARDANDO...' : 'PUBLICAR HABITACIÓN'}
+        </button>
       </form>
     </div>
   )
