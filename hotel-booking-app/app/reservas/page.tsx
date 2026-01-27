@@ -65,22 +65,81 @@ export default function ReservasPage() {
     }
   }
 
-  const obtenerEstiloCelda = (habId: string, fechaStr: string) => {
-    const reservasDelDia = reservas.filter(r => r.habitacion_id === habId && fechaStr >= r.fecha_entrada && fechaStr <= r.fecha_salida)
-    if (reservasDelDia.length === 0) return {}
+  // LÓGICA VISUAL DE LA CELDA CON NOMBRES
+  const RenderizarCelda = (habId: string, fechaStr: string) => {
+    const rDelDia = reservas.filter(r => r.habitacion_id === habId && fechaStr >= r.fecha_entrada && fechaStr <= r.fecha_salida)
+    
+    if (rDelDia.length === 0) {
+      return (
+        <td 
+          onClick={() => abrirModalNueva(habId, fechaStr)}
+          className="border h-16 cursor-pointer hover:bg-gray-50 transition-colors"
+        />
+      )
+    }
 
-    const saliendo = reservasDelDia.find(r => r.fecha_salida === fechaStr)
-    const entrando = reservasDelDia.find(r => r.fecha_entrada === fechaStr)
-    const ocupadoTotal = reservasDelDia.find(r => fechaStr > r.fecha_entrada && fechaStr < r.fecha_salida)
+    const saliendo = rDelDia.find(r => r.fecha_salida === fechaStr)
+    const entrando = rDelDia.find(r => r.fecha_entrada === fechaStr)
+    const ocupadoTotal = rDelDia.find(r => fechaStr > r.fecha_entrada && fechaStr < r.fecha_salida)
 
     const colorSaliendo = saliendo?.color || '#3b82f6'
     const colorEntrando = entrando?.color || '#10b981'
 
-    if (saliendo && entrando) return { background: `linear-gradient(to top right, ${colorSaliendo} 50%, ${colorEntrando} 50%)` }
-    if (saliendo) return { background: `linear-gradient(to top right, ${colorSaliendo} 50%, transparent 50%)` }
-    if (entrando) return { background: `linear-gradient(to top right, transparent 50%, ${colorEntrando} 50%)` }
-    if (ocupadoTotal) return { backgroundColor: ocupadoTotal.color }
-    return {}
+    let backgroundStyle = {}
+    if (saliendo && entrando) backgroundStyle = { background: `linear-gradient(to top right, ${colorSaliendo} 50%, ${colorEntrando} 50%)` }
+    else if (saliendo) backgroundStyle = { background: `linear-gradient(to top right, ${colorSaliendo} 50%, transparent 50%)` }
+    else if (entrando) backgroundStyle = { background: `linear-gradient(to top right, transparent 50%, ${colorEntrando} 50%)` }
+    else if (ocupadoTotal) backgroundStyle = { backgroundColor: ocupadoTotal.color }
+
+    return (
+      <td 
+        className="border h-16 p-0 relative cursor-pointer overflow-hidden text-[7px] font-black uppercase italic leading-none" 
+        style={backgroundStyle}
+      >
+        {saliendo && (
+          <div 
+            className="absolute bottom-1 left-1 text-white drop-shadow-md z-10"
+            onClick={(e) => { e.stopPropagation(); abrirModalEditar(saliendo); }}
+          >
+            {saliendo.huesped_nombre.split(' ')[0]}
+          </div>
+        )}
+        {entrando && (
+          <div 
+            className="absolute top-1 right-1 text-white drop-shadow-md z-10 text-right"
+            onClick={(e) => { e.stopPropagation(); abrirModalEditar(entrando); }}
+          >
+            {entrando.huesped_nombre.split(' ')[0]}
+          </div>
+        )}
+        {ocupadoTotal && !saliendo && !entrando && (
+          <div 
+            className="flex items-center justify-center h-full text-white p-1 text-center"
+            onClick={() => abrirModalEditar(ocupadoTotal)}
+          >
+            {ocupadoTotal.huesped_nombre}
+          </div>
+        )}
+        {/* Capa invisible para cliquear en zona vacía de la diagonal */}
+        {!ocupadoTotal && <div className="h-full w-full" onClick={() => abrirModalNueva(habId, fechaStr)} />}
+      </td>
+    )
+  }
+
+  const abrirModalNueva = (habId: string, fStr: string) => {
+    setEditandoId(null)
+    setNuevaReserva({
+      cliente_id: '', huesped_nombre: '', cliente_telefono: '', cliente_ciudad: '',
+      habitacion_id: habId, fecha_entrada: fStr, fecha_salida: fStr,
+      num_personas: 1, precio_persona: 0, anticipo: 0, forma_pago: 'Efectivo', observaciones: ''
+    })
+    setMostrarModal(true)
+  }
+
+  const abrirModalEditar = (reserva: any) => {
+    setEditandoId(reserva.id)
+    setNuevaReserva(reserva)
+    setMostrarModal(true)
   }
 
   const calcularNoches = () => {
@@ -97,7 +156,6 @@ export default function ReservasPage() {
   const guardarReserva = async () => {
     if (!nuevaReserva.huesped_nombre) return alert("Nombre obligatorio")
 
-    // Guardar/Actualizar Cliente primero
     let finalId = nuevaReserva.cliente_id
     const { data: cl } = await supabase.from('clientes').upsert({
       id: finalId || undefined,
@@ -162,29 +220,7 @@ export default function ReservasPage() {
                 <td className="sticky left-0 z-30 bg-white border p-4 font-black text-[10px] uppercase italic shadow-md">{hab.nombre}</td>
                 {dias.map((dia, i) => {
                   const fStr = dia.toISOString().split('T')[0]
-                  return (
-                    <td 
-                      key={i} 
-                      onClick={() => {
-                        const r = reservas.find(res => res.habitacion_id === hab.id && fStr >= res.fecha_entrada && fStr <= res.fecha_salida)
-                        if (r) {
-                          setEditandoId(r.id)
-                          setNuevaReserva(r)
-                        } else {
-                          setEditandoId(null)
-                          setNuevaReserva({
-                            cliente_id: '', huesped_nombre: '', cliente_telefono: '', cliente_ciudad: '',
-                            habitacion_id: hab.id, fecha_entrada: fStr, fecha_salida: fStr,
-                            num_personas: 1, precio_persona: hab.precio_persona_noche || 0,
-                            anticipo: 0, forma_pago: 'Efectivo', observaciones: ''
-                          })
-                        }
-                        setMostrarModal(true)
-                      }}
-                      className="border h-16 cursor-pointer hover:bg-gray-50 transition-colors"
-                      style={obtenerEstiloCelda(hab.id, fStr)}
-                    />
-                  )
+                  return RenderizarCelda(hab.id, fStr)
                 })}
               </tr>
             ))}
