@@ -1,86 +1,178 @@
 ﻿'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import Link from 'next/link'
 
 export default function ReservasPage() {
   const [habitaciones, setHabitaciones] = useState<any[]>([])
+  const [reservas, setReservas] = useState<any[]>([])
   const [cargando, setCargando] = useState(true)
+  const [fechaBase, setFechaBase] = useState(new Date())
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  // Generamos 30 días para la cuadrícula
+  const dias = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(fechaBase)
+    d.setDate(d.getDate() + i)
+    return d
+  })
 
   useEffect(() => {
-    cargarHabitaciones()
-  }, [])
+    cargarDatos()
+  }, [fechaBase])
 
-  async function cargarHabitaciones() {
+  async function cargarDatos() {
     setCargando(true)
-    // El .order('nombre') garantiza que salgan H01, H02, S04 en orden
-    const { data, error } = await supabase
-      .from('habitaciones')
-      .select('*')
-      .order('nombre', { ascending: true }) 
+    try {
+      // 1. Traer habitaciones ordenadas H01, H02, S04...
+      const { data: habs } = await supabase
+        .from('habitaciones')
+        .select('*')
+        .order('nombre', { ascending: true })
 
-    if (error) {
-      console.error('Error cargando habitaciones:', error)
-    } else {
-      setHabitaciones(data || [])
+      // 2. Traer las reservas existentes
+      const { data: reser } = await supabase
+        .from('reservas')
+        .select('*')
+
+      if (habs) setHabitaciones(habs)
+      if (reser) setReservas(reser)
+    } catch (error) {
+      console.error("Error cargando datos:", error)
     }
     setCargando(false)
   }
 
+  const handleCrearReserva = async (habId: string, dia: Date) => {
+    const nombre = prompt("Escribe el nombre del cliente para esta reserva:")
+    if (!nombre) return
+
+    // Formatear fecha para la base de datos (YYYY-MM-DD)
+    const fechaStr = dia.toISOString().split('T')[0]
+
+    // Generar un color aleatorio brillante
+    const colorAzar = `hsl(${Math.random() * 360}, 70%, 50%)`
+
+    const { error } = await supabase
+      .from('reservas')
+      .insert([
+        { 
+          habitacion_id: habId, 
+          nombre_cliente: nombre.toUpperCase(), 
+          fecha_inicio: fechaStr, 
+          fecha_fin: fechaStr,
+          color: colorAzar
+        }
+      ])
+
+    if (error) {
+      alert("Error al guardar la reserva: " + error.message)
+    } else {
+      cargarDatos() // Recargar para mostrar la nueva reserva
+    }
+  }
+
+  // Función para buscar si una habitación tiene reserva en un día específico
+  const buscarReserva = (habId: string, dia: Date) => {
+    const fechaStr = dia.toISOString().split('T')[0]
+    return reservas.find(r => r.habitacion_id === habId && r.fecha_inicio === fechaStr)
+  }
+
   return (
-    <main className="min-h-screen bg-gray-50 font-sans">
-      <nav className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
-        <Link href="/dashboard" className="text-blue-600 font-black text-[10px] uppercase italic border-b-2 border-blue-600">
-          ← VOLVER AL PANEL
+    <main className="min-h-screen bg-white flex flex-col font-sans overflow-hidden">
+      {/* HEADER */}
+      <nav className="bg-gray-900 text-white p-4 flex justify-between items-center sticky top-0 z-50 shadow-2xl">
+        <Link href="/dashboard" className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-xl text-[10px] font-black uppercase italic border border-gray-700 transition-all">
+          ← VOLVER
         </Link>
-        <h1 className="font-black text-gray-800 uppercase italic text-sm">Panel de Reservas</h1>
-        <div className="w-10"></div>
+        <div className="text-center">
+          <h1 className="font-black text-xs uppercase italic tracking-tighter">Calendario de Ocupación</h1>
+          <p className="text-[7px] text-blue-400 font-bold uppercase tracking-[0.3em]">La Posada de Frank</p>
+        </div>
+        <input 
+          type="date" 
+          className="bg-gray-800 text-white text-[10px] p-2 rounded-lg font-bold border border-gray-700 outline-none focus:border-blue-500"
+          onChange={(e) => setFechaBase(new Date(e.target.value))}
+        />
       </nav>
 
-      <div className="p-4 max-w-5xl mx-auto">
-        <div className="bg-white rounded-[3rem] shadow-2xl p-8 border border-gray-100">
-          
-          <div className="mb-8 flex justify-between items-end border-b-2 border-gray-50 pb-4">
-            <div>
-              <h2 className="text-3xl font-black text-gray-800 uppercase italic tracking-tighter">
-                Calendario <span className="text-blue-600">Activo</span>
-              </h2>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Orden: H01, H02, S04, S05...</p>
-            </div>
-            <div className="bg-blue-600 text-white px-4 py-1 rounded-2xl font-black italic text-sm">
-              {habitaciones.length} HAB
-            </div>
-          </div>
-
-          {cargando ? (
-            <div className="py-20 text-center">
-              <div className="animate-spin text-5xl mb-4 inline-block text-blue-600">⏳</div>
-              <p className="font-black text-gray-300 uppercase text-xs tracking-widest">Conectando...</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {habitaciones.map((hab) => (
-                <div key={hab.id} className="bg-gray-50 p-5 rounded-[2rem] border-2 border-transparent hover:border-blue-500 hover:bg-white transition-all shadow-sm group">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black italic text-xl shadow-lg group-hover:scale-110 transition-transform">
-                      {hab.nombre.substring(0, 3)}
-                    </div>
-                    <div>
-                      <h3 className="font-black text-gray-800 uppercase text-lg leading-none">{hab.nombre}</h3>
-                      <p className="text-green-600 font-black text-sm mt-1">${hab.precio_persona_noche}</p>
-                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Capacidad: {hab.capacidad}</p>
-                    </div>
-                  </div>
-                  <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
-                    <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[8px] font-black uppercase">Disponible</span>
-                    <button className="text-[9px] font-black text-blue-600 uppercase">Reservar →</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      {cargando ? (
+        <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 italic font-black text-gray-400 text-xs">
+          <div className="animate-spin mb-2">🌀</div>
+          SINCRONIZANDO RESERVAS...
         </div>
-      </div>
+      ) : (
+        <div className="flex-1 overflow-auto" ref={scrollContainerRef}>
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-gray-100 shadow-sm">
+                <th className="sticky left-0 z-40 bg-gray-100 border-r border-b p-4 w-[140px] min-w-[140px] text-[10px] font-black uppercase text-gray-600 italic">
+                  Habitación
+                </th>
+                {dias.map((dia, i) => {
+                  const esHoy = dia.toDateString() === new Date().toDateString()
+                  return (
+                    <th key={i} className={`border-r border-b p-2 w-[90px] min-w-[90px] text-center ${esHoy ? 'bg-blue-600 text-white' : 'bg-gray-50'}`}>
+                      <span className="block text-[8px] uppercase font-black opacity-80">
+                        {dia.toLocaleDateString('es', { weekday: 'short' })}
+                      </span>
+                      <span className="text-lg font-black italic">{dia.getDate()}</span>
+                      <span className="block text-[7px] uppercase font-bold opacity-60">
+                        {dia.toLocaleDateString('es', { month: 'short' })}
+                      </span>
+                    </th>
+                  )
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {habitaciones.map((hab) => (
+                <tr key={hab.id} className="group">
+                  <td className="sticky left-0 z-30 bg-white border-r border-b p-4 font-black text-xs uppercase italic text-gray-800 shadow-md group-hover:bg-blue-50 transition-colors">
+                    {hab.nombre}
+                  </td>
+                  {dias.map((dia, i) => {
+                    const reserva = buscarReserva(hab.id, dia)
+                    return (
+                      <td 
+                        key={i} 
+                        onClick={() => !reserva && handleCrearReserva(hab.id, dia)}
+                        className={`border-r border-b min-w-[90px] h-20 cursor-pointer relative transition-all ${!reserva ? 'hover:bg-blue-50' : ''}`}
+                        style={{ backgroundColor: reserva ? reserva.color : '' }}
+                      >
+                        {reserva ? (
+                          <div className="absolute inset-0 flex items-center justify-center p-2">
+                            <span className="text-[9px] font-black text-white uppercase text-center leading-tight drop-shadow-md break-all">
+                              {reserva.nombre_cliente}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                             <span className="bg-blue-600 text-white text-[10px] font-black px-2 py-1 rounded shadow-lg">+</span>
+                          </div>
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* LEYENDA */}
+      <footer className="bg-white border-t p-3 flex gap-6 justify-center items-center shadow-inner z-50">
+        <div className="flex items-center gap-2 text-[9px] font-black uppercase italic text-gray-600">
+          <div className="w-4 h-4 bg-blue-600 rounded shadow-sm"></div> Hoy
+        </div>
+        <div className="flex items-center gap-2 text-[9px] font-black uppercase italic text-gray-600">
+          <div className="w-4 h-4 bg-white border-2 border-gray-200 rounded shadow-sm"></div> Disponible
+        </div>
+        <div className="text-[9px] font-black uppercase italic text-gray-400">
+          Haz clic en un cuadro vacío para reservar
+        </div>
+      </footer>
     </main>
   )
 }
