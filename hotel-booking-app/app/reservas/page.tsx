@@ -22,7 +22,7 @@ export default function ReservasPage() {
     cliente_ciudad: '', 
     habitacion_id: '',
     fecha_entrada: '', 
-    fecha_fin: '', 
+    fecha_salida: '', // CAMBIADO: Antes era fecha_fin
     num_personas: 1, 
     precio_persona: 0, 
     anticipo: 0, 
@@ -85,7 +85,7 @@ export default function ReservasPage() {
       setNuevaReserva({
         cliente_id: '', huesped_nombre: '', cliente_telefono: '', cliente_direccion: '', cliente_ciudad: '',
         habitacion_id: hab.id, precio_persona: hab.precio_persona_noche || 0,
-        fecha_entrada: hoyStr, fecha_fin: mañana.toISOString().split('T')[0],
+        fecha_entrada: hoyStr, fecha_salida: mañana.toISOString().split('T')[0],
         num_personas: 1, anticipo: 0, forma_pago: 'efectivo', observaciones: ''
       })
     }
@@ -94,7 +94,7 @@ export default function ReservasPage() {
 
   const calcularNoches = () => {
     const inicio = new Date(nuevaReserva.fecha_entrada)
-    const fin = new Date(nuevaReserva.fecha_fin)
+    const fin = new Date(nuevaReserva.fecha_salida)
     const diff = Math.ceil((fin.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24))
     return diff < 1 ? 1 : diff
   }
@@ -108,13 +108,12 @@ export default function ReservasPage() {
     const choque = reservas.find(r => 
       r.id !== editandoId &&
       r.habitacion_id === nuevaReserva.habitacion_id && 
-      nuevaReserva.fecha_entrada < r.fecha_fin && 
-      nuevaReserva.fecha_fin > r.fecha_entrada
+      nuevaReserva.fecha_entrada < r.fecha_salida && 
+      nuevaReserva.fecha_salida > r.fecha_entrada
     )
     if (choque) return alert(`Ocupado por ${choque.huesped_nombre}`)
 
     let finalId = nuevaReserva.cliente_id
-    // Guardar o actualizar cliente
     const { data: cl } = await supabase.from('clientes').upsert({
       id: finalId || undefined,
       nombre: nuevaReserva.huesped_nombre.toUpperCase(),
@@ -130,7 +129,7 @@ export default function ReservasPage() {
       cliente_id: finalId,
       huesped_nombre: nuevaReserva.huesped_nombre.toUpperCase(),
       fecha_entrada: nuevaReserva.fecha_entrada,
-      fecha_fin: nuevaReserva.fecha_fin,
+      fecha_salida: nuevaReserva.fecha_salida, // USANDO EL NOMBRE CORRECTO
       num_personas: nuevaReserva.num_personas,
       precio_persona: nuevaReserva.precio_persona,
       valor_total: valorTotal,
@@ -150,10 +149,10 @@ export default function ReservasPage() {
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col font-sans">
-      <nav className="bg-gray-900 text-white p-4 flex justify-between items-center sticky top-0 z-50 shadow-xl">
+      <nav className="bg-gray-900 text-white p-4 flex justify-between items-center sticky top-0 z-50">
         <Link href="/dashboard" className="text-[10px] font-black uppercase bg-gray-800 px-4 py-2 rounded-xl border border-gray-700">← Dashboard</Link>
         <h1 className="font-black italic uppercase text-xs tracking-widest text-blue-400">Reserva Maestro</h1>
-        <input type="date" className="bg-gray-800 text-[10px] p-2 rounded-lg border border-gray-700 text-white" onChange={(e) => setFechaBase(new Date(e.target.value))} />
+        <input type="date" className="bg-gray-800 text-[10px] p-2 rounded-lg text-white" onChange={(e) => setFechaBase(new Date(e.target.value))} />
       </nav>
 
       <div className="flex-1 overflow-auto bg-white">
@@ -175,7 +174,8 @@ export default function ReservasPage() {
                 <td className="sticky left-0 z-30 bg-white border-r border-b p-4 font-black text-xs uppercase italic shadow-md">{hab.nombre}</td>
                 {dias.map((dia, i) => {
                   const f = dia.toISOString().split('T')[0]
-                  const res = reservas.find(r => r.habitacion_id === hab.id && f >= r.fecha_entrada && f < r.fecha_fin)
+                  // Lógica 12:00 PM: Ocupado hasta el día ANTERIOR a la salida
+                  const res = reservas.find(r => r.habitacion_id === hab.id && f >= r.fecha_entrada && f < r.fecha_salida)
                   return (
                     <td key={i} onClick={() => abrirReserva(hab, dia, res)} className={`border-r border-b min-w-[90px] h-20 cursor-pointer relative ${!res && 'hover:bg-blue-50'}`} style={{ backgroundColor: res ? (res.color || '#3b82f6') : '' }}>
                       {res && <div className="p-1 text-[8px] font-black text-white uppercase truncate">{res.huesped_nombre}</div>}
@@ -192,13 +192,9 @@ export default function ReservasPage() {
         <div className="fixed inset-0 bg-black/70 z-[100] flex justify-center items-center p-4 backdrop-blur-md">
           <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-xl shadow-2xl max-h-[90vh] overflow-y-auto border-t-[12px] border-blue-600">
              
-             <div className="mb-6 p-4 bg-blue-50 rounded-2xl border-2 border-blue-100">
-                <label className="text-[10px] font-black text-blue-400 uppercase mb-1 block">¿Cliente ya registrado?</label>
-                <select 
-                  className="w-full p-2 bg-white border rounded-xl font-bold text-xs uppercase"
-                  onChange={(e) => seleccionarClienteExistente(e.target.value)}
-                  value={nuevaReserva.cliente_id}
-                >
+             <div className="mb-6 p-4 bg-blue-50 rounded-2xl border-2 border-blue-100 text-xs">
+                <label className="font-black text-blue-400 uppercase mb-1 block">¿Cliente registrado?</label>
+                <select className="w-full p-2 bg-white border rounded-xl font-bold uppercase" onChange={(e) => seleccionarClienteExistente(e.target.value)} value={nuevaReserva.cliente_id}>
                   <option value="">-- SELECCIONAR CLIENTE --</option>
                   {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                 </select>
@@ -218,19 +214,28 @@ export default function ReservasPage() {
                 <div>
                   <label className="text-[10px] font-black text-gray-400 uppercase">Ciudad</label>
                   <input list="ciudades-list" value={nuevaReserva.cliente_ciudad} className="w-full p-3 border-2 border-gray-100 rounded-xl font-bold uppercase" onChange={e => setNuevaReserva({...nuevaReserva, cliente_ciudad: e.target.value})} />
-                  <datalist id="ciudades-list">
-                    {ciudades.map((c, idx) => <option key={idx} value={c} />)}
-                  </datalist>
                 </div>
 
-                <div className="md:col-span-2 grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-200">
-                  <div><label className="text-[10px] font-black text-blue-600">CHECK-IN (12PM)</label><input type="date" value={nuevaReserva.fecha_entrada} className="w-full p-2 rounded-lg font-bold" onChange={e => setNuevaReserva({...nuevaReserva, fecha_entrada: e.target.value})} /></div>
-                  <div><label className="text-[10px] font-black text-blue-600">CHECK-OUT (12PM)</label><input type="date" value={nuevaReserva.fecha_fin} className="w-full p-2 rounded-lg font-bold" onChange={e => setNuevaReserva({...nuevaReserva, fecha_fin: e.target.value})} /></div>
+                <div className="md:col-span-2 grid grid-cols-2 gap-4 bg-blue-50 p-4 rounded-2xl border border-blue-200">
+                  <div><label className="text-[10px] font-black text-blue-600">ENTRADA (12PM)</label><input type="date" value={nuevaReserva.fecha_entrada} className="w-full p-2 rounded-lg font-bold" onChange={e => setNuevaReserva({...nuevaReserva, fecha_entrada: e.target.value})} /></div>
+                  <div><label className="text-[10px] font-black text-blue-600">SALIDA (12PM)</label><input type="date" value={nuevaReserva.fecha_salida} className="w-full p-2 rounded-lg font-bold" onChange={e => setNuevaReserva({...nuevaReserva, fecha_salida: e.target.value})} /></div>
+                </div>
+
+                {/* NUEVO CAMPO: NÚMERO DE PERSONAS */}
+                <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase">Número de Personas</label>
+                    <input type="number" value={nuevaReserva.num_personas} className="w-full p-3 border-2 border-gray-100 rounded-xl font-black" onChange={e => setNuevaReserva({...nuevaReserva, num_personas: parseInt(e.target.value) || 1})} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase">Precio por Persona</label>
+                    <input type="number" value={nuevaReserva.precio_persona} className="w-full p-3 border-2 border-gray-100 rounded-xl font-black" onChange={e => setNuevaReserva({...nuevaReserva, precio_persona: parseFloat(e.target.value) || 0})} />
+                  </div>
                 </div>
 
                 <div className="md:col-span-2 bg-gray-900 text-white p-6 rounded-3xl flex justify-between shadow-xl">
-                  <div><p className="text-[9px] opacity-40 uppercase font-black">Total Estancia</p><p className="text-3xl font-black italic">${valorTotal.toFixed(2)}</p></div>
-                  <div className="text-right"><p className="text-[9px] opacity-40 uppercase font-black text-red-400">Saldo Pendiente</p><p className="text-3xl font-black italic text-red-400">${saldoPendiente.toFixed(2)}</p></div>
+                  <div><p className="text-[9px] opacity-40 uppercase font-black tracking-widest text-blue-400">Total ({calcularNoches()} noches)</p><p className="text-4xl font-black italic">${valorTotal.toFixed(2)}</p></div>
+                  <div className="text-right"><p className="text-[9px] opacity-40 uppercase font-black text-red-400 tracking-widest text-red-400">Saldo Pendiente</p><p className="text-4xl font-black italic text-red-400">${saldoPendiente.toFixed(2)}</p></div>
                 </div>
 
                 <div className="md:col-span-2">
@@ -241,11 +246,14 @@ export default function ReservasPage() {
              
              <div className="flex gap-4 mt-8">
                 <button className="flex-1 bg-gray-100 p-5 rounded-[2rem] font-black uppercase text-xs" onClick={() => setMostrarModal(false)}>Cancelar</button>
-                <button className="flex-1 bg-blue-600 text-white p-5 rounded-[2rem] font-black uppercase text-xs shadow-lg" onClick={guardarReserva}>Guardar Todo</button>
+                <button className="flex-1 bg-blue-600 text-white p-5 rounded-[2rem] font-black uppercase text-xs shadow-lg" onClick={guardarReserva}>Confirmar</button>
              </div>
           </div>
         </div>
       )}
+      <datalist id="ciudades-list">
+        {ciudades.map((c, idx) => <option key={idx} value={c} />)}
+      </datalist>
     </main>
   )
 }
