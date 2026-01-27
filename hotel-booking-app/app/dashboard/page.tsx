@@ -14,7 +14,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-100">
       <nav className="bg-green-800 text-white p-4 flex justify-between items-center shadow-lg">
-        <h1 className="text-xl font-bold">La Posada de Frank - Administración</h1>
+        <h1 className="text-xl font-bold">La Posada de Frank - Control total</h1>
         <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded font-bold transition">Cerrar Sesión</button>
       </nav>
 
