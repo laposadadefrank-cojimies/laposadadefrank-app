@@ -7,6 +7,7 @@ export default function ReservasPage() {
   const [habitaciones, setHabitaciones] = useState<any[]>([])
   const [reservas, setReservas] = useState<any[]>([])
   const [clientes, setClientes] = useState<any[]>([])
+  const [ciudades, setCiudades] = useState<string[]>([])
   const [cargando, setCargando] = useState(true)
   const [fechaBase, setFechaBase] = useState(new Date())
   
@@ -14,10 +15,19 @@ export default function ReservasPage() {
   const [editandoId, setEditandoId] = useState<string | null>(null)
   
   const [nuevaReserva, setNuevaReserva] = useState({
-    cliente_id: '', huesped_nombre: '', cliente_telefono: '', 
-    cliente_direccion: '', cliente_ciudad: '', habitacion_id: '',
-    fecha_inicio: '', fecha_fin: '', num_personas: 1, 
-    precio_persona: 0, anticipo: 0, forma_pago: 'efectivo', observaciones: ''
+    cliente_id: '', 
+    huesped_nombre: '', 
+    cliente_telefono: '', 
+    cliente_direccion: '', 
+    cliente_ciudad: '', 
+    habitacion_id: '',
+    fecha_entrada: '', 
+    fecha_fin: '', 
+    num_personas: 1, 
+    precio_persona: 0, 
+    anticipo: 0, 
+    forma_pago: 'efectivo', 
+    observaciones: ''
   })
 
   const dias = Array.from({ length: 30 }, (_, i) => {
@@ -31,14 +41,30 @@ export default function ReservasPage() {
     try {
       const { data: habs } = await supabase.from('habitaciones').select('*').order('nombre')
       const { data: reser } = await supabase.from('reservas').select('*')
-      const { data: cls } = await supabase.from('clientes').select('*')
+      const { data: cls } = await supabase.from('clientes').select('*').order('nombre')
+      
       setHabitaciones(habs || [])
       setReservas(reser || [])
-      setClientes(cls || [])
-    } catch (err) {
-      console.error(err)
-    }
+      if (cls) {
+        setClientes(cls)
+        setCiudades(Array.from(new Set(cls.map(c => c.ciudad).filter(Boolean))) as string[])
+      }
+    } catch (err) { console.error(err) }
     setCargando(false)
+  }
+
+  const seleccionarClienteExistente = (id: string) => {
+    const c = clientes.find(item => item.id === id)
+    if (c) {
+      setNuevaReserva(prev => ({
+        ...prev,
+        cliente_id: c.id,
+        huesped_nombre: c.nombre,
+        cliente_telefono: c.telefono || '',
+        cliente_direccion: c.direccion || '',
+        cliente_ciudad: c.ciudad || ''
+      }))
+    }
   }
 
   const abrirReserva = (hab: any, dia: Date, resExistente?: any) => {
@@ -59,7 +85,7 @@ export default function ReservasPage() {
       setNuevaReserva({
         cliente_id: '', huesped_nombre: '', cliente_telefono: '', cliente_direccion: '', cliente_ciudad: '',
         habitacion_id: hab.id, precio_persona: hab.precio_persona_noche || 0,
-        fecha_inicio: hoyStr, fecha_fin: mañana.toISOString().split('T')[0],
+        fecha_entrada: hoyStr, fecha_fin: mañana.toISOString().split('T')[0],
         num_personas: 1, anticipo: 0, forma_pago: 'efectivo', observaciones: ''
       })
     }
@@ -67,7 +93,7 @@ export default function ReservasPage() {
   }
 
   const calcularNoches = () => {
-    const inicio = new Date(nuevaReserva.fecha_inicio)
+    const inicio = new Date(nuevaReserva.fecha_entrada)
     const fin = new Date(nuevaReserva.fecha_fin)
     const diff = Math.ceil((fin.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24))
     return diff < 1 ? 1 : diff
@@ -79,29 +105,31 @@ export default function ReservasPage() {
   const guardarReserva = async () => {
     if (!nuevaReserva.huesped_nombre) return alert("Nombre obligatorio")
 
-    // Validación de Choque (Check-in/out lógica 12:00 PM)
     const choque = reservas.find(r => 
       r.id !== editandoId &&
       r.habitacion_id === nuevaReserva.habitacion_id && 
-      nuevaReserva.fecha_inicio < r.fecha_fin && 
-      nuevaReserva.fecha_fin > r.fecha_inicio
+      nuevaReserva.fecha_entrada < r.fecha_fin && 
+      nuevaReserva.fecha_fin > r.fecha_entrada
     )
     if (choque) return alert(`Ocupado por ${choque.huesped_nombre}`)
 
     let finalId = nuevaReserva.cliente_id
-    if (!finalId) {
-      const { data: cl } = await supabase.from('clientes').insert([{ 
-        nombre: nuevaReserva.huesped_nombre.toUpperCase(), telefono: nuevaReserva.cliente_telefono,
-        direccion: nuevaReserva.cliente_direccion, ciudad: nuevaReserva.cliente_ciudad
-      }]).select().single()
-      finalId = cl?.id
-    }
+    // Guardar o actualizar cliente
+    const { data: cl } = await supabase.from('clientes').upsert({
+      id: finalId || undefined,
+      nombre: nuevaReserva.huesped_nombre.toUpperCase(),
+      telefono: nuevaReserva.cliente_telefono,
+      ciudad: nuevaReserva.cliente_ciudad,
+      direccion: nuevaReserva.cliente_direccion
+    }).select().single()
+    
+    finalId = cl?.id
 
     const datos = {
       habitacion_id: nuevaReserva.habitacion_id,
       cliente_id: finalId,
-      huesped_nombre: nuevaReserva.huesped_nombre.toUpperCase(), // Usando el nombre correcto de tu columna
-      fecha_inicio: nuevaReserva.fecha_inicio,
+      huesped_nombre: nuevaReserva.huesped_nombre.toUpperCase(),
+      fecha_entrada: nuevaReserva.fecha_entrada,
       fecha_fin: nuevaReserva.fecha_fin,
       num_personas: nuevaReserva.num_personas,
       precio_persona: nuevaReserva.precio_persona,
@@ -122,20 +150,20 @@ export default function ReservasPage() {
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col font-sans">
-      <nav className="bg-gray-900 text-white p-4 flex justify-between items-center sticky top-0 z-50">
-        <Link href="/dashboard" className="text-[10px] font-black uppercase bg-gray-800 px-3 py-2 rounded-xl">← Dashboard</Link>
-        <h1 className="font-black italic uppercase text-xs">Sistema de Reservas</h1>
-        <input type="date" className="bg-gray-800 text-[10px] p-2 rounded text-white" onChange={(e) => setFechaBase(new Date(e.target.value))} />
+      <nav className="bg-gray-900 text-white p-4 flex justify-between items-center sticky top-0 z-50 shadow-xl">
+        <Link href="/dashboard" className="text-[10px] font-black uppercase bg-gray-800 px-4 py-2 rounded-xl border border-gray-700">← Dashboard</Link>
+        <h1 className="font-black italic uppercase text-xs tracking-widest text-blue-400">Reserva Maestro</h1>
+        <input type="date" className="bg-gray-800 text-[10px] p-2 rounded-lg border border-gray-700 text-white" onChange={(e) => setFechaBase(new Date(e.target.value))} />
       </nav>
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto bg-white">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-gray-100 uppercase text-[10px] font-black italic text-gray-500">
-              <th className="sticky left-0 z-40 bg-gray-100 border-r border-b p-4 min-w-[120px]">Hab.</th>
+              <th className="sticky left-0 z-40 bg-gray-100 border-r border-b p-4 min-w-[120px]">Habitación</th>
               {dias.map((dia, i) => (
                 <th key={i} className={`border-r border-b p-2 min-w-[90px] text-center ${dia.toDateString() === new Date().toDateString() ? 'bg-blue-600 text-white' : ''}`}>
-                  <span className="block text-[8px]">{dia.toLocaleDateString('es', { weekday: 'short' })}</span>
+                  <span className="block text-[8px] opacity-70">{dia.toLocaleDateString('es', { weekday: 'short' })}</span>
                   <span className="text-lg italic font-black">{dia.getDate()}</span>
                 </th>
               ))}
@@ -144,11 +172,10 @@ export default function ReservasPage() {
           <tbody>
             {habitaciones.map((hab) => (
               <tr key={hab.id}>
-                <td className="sticky left-0 z-30 bg-white border-r border-b p-4 font-black text-xs uppercase italic">{hab.nombre}</td>
+                <td className="sticky left-0 z-30 bg-white border-r border-b p-4 font-black text-xs uppercase italic shadow-md">{hab.nombre}</td>
                 {dias.map((dia, i) => {
                   const f = dia.toISOString().split('T')[0]
-                  // Muestra ocupado solo hasta el día anterior al checkout (Lógica 12:00 PM)
-                  const res = reservas.find(r => r.habitacion_id === hab.id && f >= r.fecha_inicio && f < r.fecha_fin)
+                  const res = reservas.find(r => r.habitacion_id === hab.id && f >= r.fecha_entrada && f < r.fecha_fin)
                   return (
                     <td key={i} onClick={() => abrirReserva(hab, dia, res)} className={`border-r border-b min-w-[90px] h-20 cursor-pointer relative ${!res && 'hover:bg-blue-50'}`} style={{ backgroundColor: res ? (res.color || '#3b82f6') : '' }}>
                       {res && <div className="p-1 text-[8px] font-black text-white uppercase truncate">{res.huesped_nombre}</div>}
@@ -162,26 +189,59 @@ export default function ReservasPage() {
       </div>
 
       {mostrarModal && (
-        <div className="fixed inset-0 bg-black/70 z-[100] flex justify-center items-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] p-8 w-full max-w-xl shadow-2xl max-h-[90vh] overflow-y-auto border-t-[10px] border-blue-600">
-             <div className="flex justify-between mb-6">
-                <h2 className="text-2xl font-black uppercase italic text-gray-800">{editandoId ? 'Editar' : 'Nueva'} Reserva</h2>
+        <div className="fixed inset-0 bg-black/70 z-[100] flex justify-center items-center p-4 backdrop-blur-md">
+          <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-xl shadow-2xl max-h-[90vh] overflow-y-auto border-t-[12px] border-blue-600">
+             
+             <div className="mb-6 p-4 bg-blue-50 rounded-2xl border-2 border-blue-100">
+                <label className="text-[10px] font-black text-blue-400 uppercase mb-1 block">¿Cliente ya registrado?</label>
+                <select 
+                  className="w-full p-2 bg-white border rounded-xl font-bold text-xs uppercase"
+                  onChange={(e) => seleccionarClienteExistente(e.target.value)}
+                  value={nuevaReserva.cliente_id}
+                >
+                  <option value="">-- SELECCIONAR CLIENTE --</option>
+                  {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
              </div>
-             <div className="space-y-4">
-                <input type="text" placeholder="NOMBRE DEL HUÉSPED" value={nuevaReserva.huesped_nombre} className="w-full p-4 border-2 border-gray-100 rounded-2xl font-black uppercase text-sm" onChange={e => setNuevaReserva({...nuevaReserva, huesped_nombre: e.target.value})} />
-                <div className="grid grid-cols-2 gap-4 bg-blue-50 p-4 rounded-2xl">
-                  <div><label className="text-[10px] font-black">ENTRADA (12PM)</label><input type="date" value={nuevaReserva.fecha_inicio} className="w-full p-2 rounded-lg font-bold" onChange={e => setNuevaReserva({...nuevaReserva, fecha_inicio: e.target.value})} /></div>
-                  <div><label className="text-[10px] font-black">SALIDA (12PM)</label><input type="date" value={nuevaReserva.fecha_fin} className="w-full p-2 rounded-lg font-bold" onChange={e => setNuevaReserva({...nuevaReserva, fecha_fin: e.target.value})} /></div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase">Nombre Completo</label>
+                  <input type="text" value={nuevaReserva.huesped_nombre} className="w-full p-3 border-2 border-gray-100 rounded-xl font-black uppercase text-sm" onChange={e => setNuevaReserva({...nuevaReserva, huesped_nombre: e.target.value})} />
                 </div>
-                <div className="bg-gray-900 text-white p-6 rounded-3xl flex justify-between">
-                  <div><p className="text-[9px] opacity-40 uppercase">Total ({calcularNoches()} Noches)</p><p className="text-3xl font-black italic">${valorTotal.toFixed(2)}</p></div>
-                  <div className="text-right"><p className="text-[9px] opacity-40 uppercase text-red-400">Saldo</p><p className="text-3xl font-black italic text-red-400">${saldoPendiente.toFixed(2)}</p></div>
+                
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase">Teléfono</label>
+                  <input type="text" value={nuevaReserva.cliente_telefono} className="w-full p-3 border-2 border-gray-100 rounded-xl font-bold" onChange={e => setNuevaReserva({...nuevaReserva, cliente_telefono: e.target.value})} />
                 </div>
-                <input type="number" placeholder="ANTICIPO" value={nuevaReserva.anticipo} className="w-full p-4 border-2 border-green-200 rounded-2xl font-black text-green-600 text-2xl" onChange={e => setNuevaReserva({...nuevaReserva, anticipo: parseFloat(e.target.value) || 0})} />
+
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase">Ciudad</label>
+                  <input list="ciudades-list" value={nuevaReserva.cliente_ciudad} className="w-full p-3 border-2 border-gray-100 rounded-xl font-bold uppercase" onChange={e => setNuevaReserva({...nuevaReserva, cliente_ciudad: e.target.value})} />
+                  <datalist id="ciudades-list">
+                    {ciudades.map((c, idx) => <option key={idx} value={c} />)}
+                  </datalist>
+                </div>
+
+                <div className="md:col-span-2 grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-200">
+                  <div><label className="text-[10px] font-black text-blue-600">CHECK-IN (12PM)</label><input type="date" value={nuevaReserva.fecha_entrada} className="w-full p-2 rounded-lg font-bold" onChange={e => setNuevaReserva({...nuevaReserva, fecha_entrada: e.target.value})} /></div>
+                  <div><label className="text-[10px] font-black text-blue-600">CHECK-OUT (12PM)</label><input type="date" value={nuevaReserva.fecha_fin} className="w-full p-2 rounded-lg font-bold" onChange={e => setNuevaReserva({...nuevaReserva, fecha_fin: e.target.value})} /></div>
+                </div>
+
+                <div className="md:col-span-2 bg-gray-900 text-white p-6 rounded-3xl flex justify-between shadow-xl">
+                  <div><p className="text-[9px] opacity-40 uppercase font-black">Total Estancia</p><p className="text-3xl font-black italic">${valorTotal.toFixed(2)}</p></div>
+                  <div className="text-right"><p className="text-[9px] opacity-40 uppercase font-black text-red-400">Saldo Pendiente</p><p className="text-3xl font-black italic text-red-400">${saldoPendiente.toFixed(2)}</p></div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-black text-green-600 uppercase">Abono / Anticipo</label>
+                  <input type="number" value={nuevaReserva.anticipo} className="w-full p-4 border-2 border-green-200 rounded-2xl font-black text-green-600 text-3xl" onChange={e => setNuevaReserva({...nuevaReserva, anticipo: parseFloat(e.target.value) || 0})} />
+                </div>
              </div>
+             
              <div className="flex gap-4 mt-8">
-                <button className="flex-1 bg-gray-100 p-5 rounded-3xl font-black uppercase text-xs" onClick={() => setMostrarModal(false)}>Cerrar</button>
-                <button className="flex-1 bg-blue-600 text-white p-5 rounded-3xl font-black uppercase text-xs" onClick={guardarReserva}>Confirmar</button>
+                <button className="flex-1 bg-gray-100 p-5 rounded-[2rem] font-black uppercase text-xs" onClick={() => setMostrarModal(false)}>Cancelar</button>
+                <button className="flex-1 bg-blue-600 text-white p-5 rounded-[2rem] font-black uppercase text-xs shadow-lg" onClick={guardarReserva}>Guardar Todo</button>
              </div>
           </div>
         </div>
