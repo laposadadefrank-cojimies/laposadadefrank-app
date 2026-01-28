@@ -16,8 +16,13 @@ export default function UsuariosPage() {
   }, [])
 
   async function cargarUsuarios() {
-    const { data } = await supabase.from('perfiles').select('*').order('email')
-    setUsuarios(data || [])
+    // Forzamos la carga desde la tabla perfiles
+    const { data, error } = await supabase.from('perfiles').select('*').order('email')
+    if (error) {
+      console.error("Error al cargar usuarios:", error.message)
+    } else {
+      setUsuarios(data || [])
+    }
   }
 
   const guardarUsuario = async (e: React.FormEvent) => {
@@ -36,12 +41,13 @@ export default function UsuariosPage() {
       const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) alert("Error: " + error.message)
       else if (data.user) {
+        // Aseguramos inserción manual en perfiles si el trigger falla
         await supabase.from('perfiles').insert([{ id: data.user.id, email, rol }])
         alert("Usuario creado con éxito")
       }
     }
     resetearFormulario()
-    cargarUsuarios()
+    await cargarUsuarios()
     setCargando(false)
   }
 
@@ -49,7 +55,7 @@ export default function UsuariosPage() {
     if (confirm(`¿ELIMINAR ACCESO A: ${userEmail}?`)) {
       const { error } = await supabase.from('perfiles').delete().eq('id', id)
       if (error) alert(error.message)
-      else cargarUsuarios()
+      else await cargarUsuarios()
     }
   }
 
@@ -110,24 +116,30 @@ export default function UsuariosPage() {
         {/* LISTA DE USUARIOS CON BOTONES VISIBLES */}
         <div className="space-y-4">
           <h2 className="text-[10px] font-black uppercase text-gray-400 ml-4 italic">Lista de Usuarios con Acceso</h2>
-          {usuarios.map((u) => (
-            <div key={u.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100">
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-xl">👤</div>
-                  <div>
-                    <p className="font-black text-xs text-gray-800">{u.email}</p>
-                    <span className={`text-[8px] font-black uppercase px-3 py-1 rounded-full ${u.rol === 'admin' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'}`}>{u.rol}</span>
+          {usuarios.length > 0 ? (
+            usuarios.map((u) => (
+              <div key={u.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col gap-4">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-xl">👤</div>
+                    <div>
+                      <p className="font-black text-xs text-gray-800">{u.email}</p>
+                      <span className={`text-[8px] font-black uppercase px-3 py-1 rounded-full ${u.rol === 'admin' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'}`}>{u.rol}</span>
+                    </div>
                   </div>
                 </div>
+                
+                <div className="flex gap-2 border-t pt-4 border-gray-50">
+                  <button onClick={() => prepararEdicion(u)} className="flex-1 bg-blue-50 text-blue-700 py-3 rounded-xl font-black uppercase text-[9px] hover:bg-blue-100 transition-colors border border-blue-100">Editar</button>
+                  <button onClick={() => eliminarUsuario(u.id, u.email)} className="flex-1 bg-red-50 text-red-700 py-3 rounded-xl font-black uppercase text-[9px] hover:bg-red-100 transition-colors border border-red-100">Eliminar</button>
+                </div>
               </div>
-              
-              <div className="flex gap-2 border-t pt-4 border-gray-50">
-                <button onClick={() => prepararEdicion(u)} className="flex-1 bg-blue-50 text-blue-700 py-3 rounded-xl font-black uppercase text-[9px] hover:bg-blue-100 transition-colors border border-blue-100">Editar</button>
-                <button onClick={() => eliminarUsuario(u.id, u.email)} className="flex-1 bg-red-50 text-red-700 py-3 rounded-xl font-black uppercase text-[9px] hover:bg-red-100 transition-colors border border-red-100">Eliminar</button>
-              </div>
+            ))
+          ) : (
+            <div className="bg-white p-10 rounded-[2rem] border border-dashed border-gray-200 text-center">
+              <p className="text-gray-400 font-bold uppercase text-[10px]">No se encontraron usuarios en la base de datos</p>
             </div>
-          ))}
+          )}
         </div>
       </div>
     </main>
