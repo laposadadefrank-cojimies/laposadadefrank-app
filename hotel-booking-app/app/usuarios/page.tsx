@@ -8,6 +8,7 @@ export default function UsuariosPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [rol, setRol] = useState('recepcionista')
+  const [editandoId, setEditandoId] = useState<string | null>(null) // Para saber si editamos
   const [cargando, setCargando] = useState(false)
 
   useEffect(() => {
@@ -15,95 +16,164 @@ export default function UsuariosPage() {
   }, [])
 
   async function cargarUsuarios() {
-    // Nota: Por seguridad, Supabase Auth requiere cuidado aquí. 
-    // Mostraremos los datos de nuestra tabla 'perfiles'
-    const { data } = await supabase.from('perfiles').select('*')
+    const { data } = await supabase.from('perfiles').select('*').order('email')
     setUsuarios(data || [])
   }
 
-  const crearUsuario = async (e: React.FormEvent) => {
+  const guardarUsuario = async (e: React.FormEvent) => {
     e.preventDefault()
     setCargando(true)
     
-    // 1. Registrar en Auth
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
+    if (editandoId) {
+      // MODO EDICIÓN: Solo actualizamos el Rol
+      const { error } = await supabase
+        .from('perfiles')
+        .update({ rol: rol })
+        .eq('id', editandoId)
 
-    if (error) {
-      alert("Error: " + error.message)
-    } else if (data.user) {
-      // 2. Crear el perfil con el rol
-      await supabase.from('perfiles').insert([
-        { id: data.user.id, email: email, rol: rol }
-      ])
-      alert("Usuario creado. El empleado debe revisar su correo para confirmar.")
-      setEmail('')
-      setPassword('')
-      cargarUsuarios()
+      if (error) alert("Error al actualizar: " + error.message)
+      else alert("Rol actualizado con éxito")
+    } else {
+      // MODO CREACIÓN: Auth + Perfil
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+
+      if (error) {
+        alert("Error: " + error.message)
+      } else if (data.user) {
+        await supabase.from('perfiles').insert([
+          { id: data.user.id, email: email, rol: rol }
+        ])
+        alert("Usuario creado. Debe confirmar su correo.")
+      }
     }
+
+    resetearFormulario()
+    cargarUsuarios()
     setCargando(false)
+  }
+
+  const eliminarUsuario = async (id: string, userEmail: string) => {
+    if (confirm(`¿Estás seguro de eliminar a ${userEmail}? Esta acción no se puede deshacer.`)) {
+      const { error } = await supabase.from('perfiles').delete().eq('id', id)
+      if (error) alert("Error al eliminar: " + error.message)
+      else cargarUsuarios()
+    }
+  }
+
+  const prepararEdicion = (u: any) => {
+    setEditandoId(u.id)
+    setEmail(u.email)
+    setRol(u.rol)
+    setPassword('******') // Solo visual
+  }
+
+  const resetearFormulario = () => {
+    setEditandoId(null)
+    setEmail('')
+    setPassword('')
+    setRol('recepcionista')
   }
 
   return (
     <main className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
-      <nav className="mb-8 flex justify-between items-center">
+      <nav className="mb-8 flex justify-between items-center max-w-6xl mx-auto">
         <Link href="/dashboard" className="bg-gray-900 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg">← Volver</Link>
         <h1 className="text-xl font-black italic uppercase text-gray-800">Personal del Hotel</h1>
         <div className="w-10"></div>
       </nav>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
         {/* FORMULARIO */}
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border-t-8 border-orange-500">
-          <h2 className="text-[10px] font-black uppercase text-gray-400 mb-4">✨ Registrar Nuevo Empleado</h2>
-          <form onSubmit={crearUsuario} className="space-y-4">
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border-t-8 border-orange-500 h-fit">
+          <h2 className="text-[10px] font-black uppercase text-gray-400 mb-4">
+            {editandoId ? '📝 Editar Permisos' : '✨ Registrar Nuevo Empleado'}
+          </h2>
+          <form onSubmit={guardarUsuario} className="space-y-4">
             <input 
               type="email" 
               placeholder="Correo Electrónico" 
-              className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs"
+              className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs disabled:opacity-50"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={!!editandoId}
             />
-            <input 
-              type="password" 
-              placeholder="Contraseña Temporal" 
-              className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            {!editandoId && (
+              <input 
+                type="password" 
+                placeholder="Contraseña Temporal" 
+                className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            )}
             <select 
-              className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs uppercase"
+              className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-black text-xs uppercase text-orange-600"
               value={rol}
               onChange={(e) => setRol(e.target.value)}
             >
               <option value="recepcionista">Recepcionista (Solo Reservas)</option>
               <option value="admin">Administrador (Acceso Total)</option>
             </select>
-            <button 
-              disabled={cargando}
-              className="w-full bg-orange-500 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-lg hover:bg-orange-600"
-            >
-              {cargando ? 'Registrando...' : 'Crear Acceso'}
-            </button>
+            
+            <div className="flex gap-2">
+              <button 
+                type="submit"
+                disabled={cargando}
+                className="flex-1 bg-orange-500 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-lg hover:bg-orange-600 transition-all"
+              >
+                {cargando ? 'Procesando...' : editandoId ? 'Actualizar Rol' : 'Crear Acceso'}
+              </button>
+              {editandoId && (
+                <button 
+                  type="button"
+                  onClick={resetearFormulario}
+                  className="bg-gray-200 text-gray-600 px-4 rounded-2xl font-black uppercase text-[10px]"
+                >
+                  X
+                </button>
+              )}
+            </div>
           </form>
         </div>
 
-        {/* LISTA */}
+        {/* LISTA ACTUALIZADA */}
         <div className="space-y-4">
-          <h2 className="text-[10px] font-black uppercase text-gray-400 ml-4">👥 Personal Actual</h2>
+          <h2 className="text-[10px] font-black uppercase text-gray-400 ml-4 italic">Usuarios con acceso</h2>
           {usuarios.map((u) => (
-            <div key={u.id} className="bg-white p-4 rounded-3xl shadow-sm flex justify-between items-center border border-gray-100">
-              <div>
-                <p className="font-black text-xs text-gray-800">{u.email}</p>
-                <p className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full inline-block ${u.rol === 'admin' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
-                  {u.rol}
-                </p>
+            <div key={u.id} className="bg-white p-5 rounded-[2rem] shadow-sm flex justify-between items-center border border-gray-100 group hover:border-orange-200 transition-all">
+              <div className="flex items-center gap-4">
+                <span className="text-3xl">👤</span>
+                <div>
+                  <p className="font-black text-xs text-gray-800">{u.email}</p>
+                  <p className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full inline-block mt-1 ${
+                    u.rol === 'admin' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'
+                  }`}>
+                    {u.rol}
+                  </p>
+                </div>
               </div>
-              <span className="text-2xl">👤</span>
+              
+              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button 
+                  onClick={() => prepararEdicion(u)}
+                  className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                  title="Editar Rol"
+                >
+                  ✏️
+                </button>
+                <button 
+                  onClick={() => eliminarUsuario(u.id, u.email)}
+                  className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                  title="Borrar Acceso"
+                >
+                  🗑️
+                </button>
+              </div>
             </div>
           ))}
         </div>
