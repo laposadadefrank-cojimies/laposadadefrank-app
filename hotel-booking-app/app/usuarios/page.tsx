@@ -16,7 +16,8 @@ export default function UsuariosPage() {
   }, [])
 
   async function cargarUsuarios() {
-    const { data, error } = await supabase.from('perfiles').select('*').order('email')
+    // CAMBIADO: Ahora apunta a la tabla 'profiles' que es la que tiene tus datos
+    const { data, error } = await supabase.from('profiles').select('*').order('email')
     if (error) {
       console.error("Error al cargar usuarios:", error.message)
     } else {
@@ -29,21 +30,31 @@ export default function UsuariosPage() {
     setCargando(true)
     
     if (editandoId) {
-      // Lógica para EDITAR rol
+      // EDITAR en la tabla 'profiles'
       const { error } = await supabase
-        .from('perfiles')
+        .from('profiles')
         .update({ rol: rol })
         .eq('id', editandoId)
 
       if (error) alert("Error: " + error.message)
       else alert("¡Rol actualizado con éxito!")
     } else {
-      // Lógica para CREAR nuevo
+      // CREAR NUEVO
       const { data, error } = await supabase.auth.signUp({ email, password })
-      if (error) alert("Error: " + error.message)
-      else if (data.user) {
-        await supabase.from('perfiles').insert([{ id: data.user.id, email, rol }])
-        alert("Usuario creado con éxito")
+      if (error) {
+        alert("Error en Auth: " + error.message)
+      } else if (data.user) {
+        // INSERTAR en la tabla 'profiles'
+        const { error: errorPerfil } = await supabase
+          .from('profiles')
+          .insert([{ 
+            id: data.user.id, 
+            email: email, 
+            rol: rol 
+          }])
+        
+        if (errorPerfil) alert("Error al crear perfil: " + errorPerfil.message)
+        else alert("Usuario creado con éxito")
       }
     }
     resetearFormulario()
@@ -51,21 +62,19 @@ export default function UsuariosPage() {
     setCargando(false)
   }
 
-  // FUNCIÓN PARA ELIMINAR
   const eliminarUsuario = async (id: string, userEmail: string) => {
     if (confirm(`¿ELIMINAR ACCESO A: ${userEmail}?`)) {
-      const { error } = await supabase.from('perfiles').delete().eq('id', id)
+      // ELIMINAR de la tabla 'profiles'
+      const { error } = await supabase.from('profiles').delete().eq('id', id)
       if (error) alert(error.message)
       else await cargarUsuarios()
     }
   }
 
-  // FUNCIÓN PARA CARGAR DATOS EN EL FORMULARIO AL EDITAR
   const prepararEdicion = (u: any) => {
     setEditandoId(u.id)
     setEmail(u.email)
     setRol(u.rol)
-    // No cargamos password por seguridad
   }
 
   const resetearFormulario = () => {
@@ -84,7 +93,7 @@ export default function UsuariosPage() {
       </nav>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
-        {/* FORMULARIO DE CREACIÓN/EDICIÓN */}
+        {/* FORMULARIO */}
         <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border-t-8 border-orange-500 h-fit">
           <h2 className="text-[11px] font-black uppercase text-gray-800 mb-6 flex items-center gap-2">
             {editandoId ? '📝 Editando Empleado' : '🚀 Registrar Nuevo'}
@@ -113,15 +122,12 @@ export default function UsuariosPage() {
             <button type="submit" disabled={cargando} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-[11px] shadow-lg hover:bg-orange-600 active:scale-95 transition-all">
               {cargando ? 'Procesando...' : editandoId ? 'Guardar Cambios' : 'Crear Acceso Ahora'}
             </button>
-            {editandoId && (
-              <button type="button" onClick={resetearFormulario} className="w-full mt-2 text-[9px] font-black uppercase text-gray-400">Cancelar Edición</button>
-            )}
           </form>
         </div>
 
-        {/* LISTA DE USUARIOS - Basada en tu código que SI funciona */}
+        {/* LISTA DE USUARIOS */}
         <div className="space-y-4">
-          <h2 className="text-[10px] font-black uppercase text-gray-400 ml-4 italic">Lista de Usuarios con Acceso</h2>
+          <h2 className="text-[10px] font-black uppercase text-gray-400 ml-4 italic">Lista de Usuarios con Acceso (Tabla Profiles)</h2>
           {usuarios.length > 0 ? (
             usuarios.map((u) => (
               <div key={u.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col gap-4">
@@ -135,26 +141,15 @@ export default function UsuariosPage() {
                   </div>
                 </div>
                 
-                {/* BOTONES VISIBLES PARA EDITAR Y BORRAR */}
                 <div className="flex gap-2 border-t pt-4 border-gray-50">
-                  <button 
-                    onClick={() => prepararEdicion(u)} 
-                    className="flex-1 bg-blue-50 text-blue-700 py-3 rounded-xl font-black uppercase text-[9px] hover:bg-blue-100 transition-colors border border-blue-100"
-                  >
-                    Editar Rol
-                  </button>
-                  <button 
-                    onClick={() => eliminarUsuario(u.id, u.email)} 
-                    className="flex-1 bg-red-50 text-red-700 py-3 rounded-xl font-black uppercase text-[9px] hover:bg-red-100 transition-colors border border-red-100"
-                  >
-                    Eliminar
-                  </button>
+                  <button onClick={() => prepararEdicion(u)} className="flex-1 bg-blue-50 text-blue-700 py-3 rounded-xl font-black uppercase text-[9px] hover:bg-blue-100 border border-blue-100">Editar Rol</button>
+                  <button onClick={() => eliminarUsuario(u.id, u.email)} className="flex-1 bg-red-50 text-red-700 py-3 rounded-xl font-black uppercase text-[9px] hover:bg-red-100 border border-red-100">Eliminar</button>
                 </div>
               </div>
             ))
           ) : (
             <div className="bg-white p-10 rounded-[2rem] border border-dashed border-gray-200 text-center">
-              <p className="text-gray-400 font-bold uppercase text-[10px]">No se encontraron usuarios en la base de datos</p>
+              <p className="text-gray-400 font-bold uppercase text-[10px]">No hay datos en la tabla 'profiles'</p>
             </div>
           )}
         </div>
