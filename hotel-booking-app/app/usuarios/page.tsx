@@ -16,7 +16,7 @@ export default function UsuariosPage() {
   }, [])
 
   async function cargarUsuarios() {
-    // CORRECCIÓN: Apuntamos a 'profiles' que es la tabla con datos
+    // CAMBIO: Apuntamos a 'profiles' que es la tabla que SI tiene datos
     const { data, error } = await supabase.from('profiles').select('*').order('email')
     if (error) {
       console.error("Error al cargar usuarios:", error.message)
@@ -30,7 +30,7 @@ export default function UsuariosPage() {
     setCargando(true)
     
     if (editandoId) {
-      // CORRECCIÓN: El campo en tu SQL es 'role'
+      // CAMBIO: Actualizamos el campo 'role' en la tabla 'profiles'
       const { error } = await supabase
         .from('profiles')
         .update({ role: rol })
@@ -42,7 +42,7 @@ export default function UsuariosPage() {
       const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) alert("Error: " + error.message)
       else if (data.user) {
-        // CORRECCIÓN: Insertamos en 'profiles' usando el campo 'role'
+        // CAMBIO: Insertamos en 'profiles' usando el campo 'role'
         await supabase.from('profiles').insert([{ id: data.user.id, email, role: rol }])
         alert("Usuario creado con éxito")
       }
@@ -63,7 +63,8 @@ export default function UsuariosPage() {
   const prepararEdicion = (u: any) => {
     setEditandoId(u.id)
     setEmail(u.email)
-    setRol(u.role || 'recepcionista') // Usamos 'role' del SQL
+    // CAMBIO: Cargamos el campo 'role' del usuario
+    setRol(u.role || 'recepcionista')
   }
 
   const resetearFormulario = () => {
@@ -104,20 +105,21 @@ export default function UsuariosPage() {
               <select className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-black text-xs uppercase text-orange-600 border border-transparent focus:border-orange-500 cursor-pointer" value={rol} onChange={(e) => setRol(e.target.value)}>
                 <option value="recepcionista">🔑 Recepcionista</option>
                 <option value="admin">👑 Administrador</option>
+                <option value="user">👤 Usuario Estándar</option>
               </select>
             </div>
             
-            <button type="submit" disabled={cargando} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-[11px] shadow-lg hover:bg-orange-600 active:scale-95 transition-all">
+            <button type="submit" disabled={cargando} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-[11px] shadow-lg hover:bg-orange-600 transition-all">
               {cargando ? 'Procesando...' : editandoId ? 'Guardar Cambios' : 'Crear Acceso Ahora'}
             </button>
             {editandoId && (
-              <button type="button" onClick={resetearFormulario} className="w-full mt-2 text-[9px] font-black uppercase text-gray-400 text-center">Cancelar Edición</button>
+              <button type="button" onClick={resetearFormulario} className="w-full mt-2 text-[9px] font-black uppercase text-gray-400">Cancelar Edición</button>
             )}
           </form>
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-[10px] font-black uppercase text-gray-400 ml-4 italic">Lista de Usuarios (Tabla Profiles)</h2>
+          <h2 className="text-[10px] font-black uppercase text-gray-400 ml-4 italic">Lista de Usuarios con Acceso</h2>
           {usuarios.length > 0 ? (
             usuarios.map((u) => (
               <div key={u.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col gap-4">
@@ -126,20 +128,21 @@ export default function UsuariosPage() {
                     <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-xl">👤</div>
                     <div>
                       <p className="font-black text-xs text-gray-800">{u.email}</p>
+                      {/* CAMBIO: Mostramos el campo 'role' del SQL */}
                       <span className={`text-[8px] font-black uppercase px-3 py-1 rounded-full ${u.role === 'admin' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'}`}>{u.role}</span>
                     </div>
                   </div>
                 </div>
                 
                 <div className="flex gap-2 border-t pt-4 border-gray-50">
-                  <button onClick={() => prepararEdicion(u)} className="flex-1 bg-blue-50 text-blue-700 py-3 rounded-xl font-black uppercase text-[9px] hover:bg-blue-100 transition-colors border border-blue-100">Editar Rol</button>
+                  <button onClick={() => prepararEdicion(u)} className="flex-1 bg-blue-50 text-blue-700 py-3 rounded-xl font-black uppercase text-[9px] hover:bg-blue-100 transition-colors border border-blue-100">Editar</button>
                   <button onClick={() => eliminarUsuario(u.id, u.email)} className="flex-1 bg-red-50 text-red-700 py-3 rounded-xl font-black uppercase text-[9px] hover:bg-red-100 transition-colors border border-red-100">Eliminar</button>
                 </div>
               </div>
             ))
           ) : (
             <div className="bg-white p-10 rounded-[2rem] border border-dashed border-gray-200 text-center">
-              <p className="text-gray-400 font-bold uppercase text-[10px]">Cargando datos desde profiles...</p>
+              <p className="text-gray-400 font-bold uppercase text-[10px]">Cargando desde la tabla profiles...</p>
             </div>
           )}
         </div>
