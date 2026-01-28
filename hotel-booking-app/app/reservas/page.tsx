@@ -29,7 +29,6 @@ export default function ReservasPage() {
     observaciones: ''
   })
 
-  // Aumentamos a 35 días para aprovechar el espacio extra
   const dias = Array.from({ length: 35 }, (_, i) => {
     const d = new Date(fechaBase); d.setDate(d.getDate() + i); return d
   })
@@ -66,17 +65,52 @@ export default function ReservasPage() {
     }
   }
 
+  const calcularNoches = () => {
+    if (!nuevaReserva.fecha_entrada || !nuevaReserva.fecha_salida) return 1
+    const inicio = new Date(nuevaReserva.fecha_entrada)
+    const fin = new Date(nuevaReserva.fecha_salida)
+    const diff = Math.ceil((fin.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24))
+    return diff < 1 ? 1 : diff
+  }
+
+  const valorTotal = nuevaReserva.num_personas * nuevaReserva.precio_persona * calcularNoches()
+  const saldoPendiente = valorTotal - nuevaReserva.anticipo
+
+  const enviarWhatsApp = () => {
+    const habNombre = habitaciones.find(h => h.id === nuevaReserva.habitacion_id)?.nombre || 'Habitación'
+    const separador = "---------------------------\n"
+    
+    const mensaje = `*RESUMEN DE RESERVA - HOTEL LA POSADA DE FRANK*\n` +
+      separador +
+      `*Cliente:* ${nuevaReserva.huesped_nombre.toUpperCase()}\n` +
+      separador +
+      `*N° Personas:* ${nuevaReserva.num_personas}\n` +
+      separador +
+      `*Habitación:* ${habNombre}\n` +
+      separador +
+      `*Desde:* ${nuevaReserva.fecha_entrada}\n` +
+      separador +
+      `*Hasta:* ${nuevaReserva.fecha_salida}\n` +
+      separador +
+      `*Valor Total:* $${valorTotal.toFixed(2)}\n` +
+      separador +
+      `*Anticipo:* $${nuevaReserva.anticipo.toFixed(2)}\n` +
+      separador +
+      `*Medio de Anticipo:* ${nuevaReserva.forma_pago}\n` +
+      separador +
+      `*Saldo Pendiente:* $${saldoPendiente.toFixed(2)}\n` +
+      separador + `\n` +
+      `_Recuerde que el saldo pendiente se cancela al momento del Check-in._\n\n` +
+      `*INFORMACIÓN IMPORTANTE:*\n` +
+      `El Check-in es a partir de las 13:00 PM y el Check-out es hasta las 11:00 AM. Si requiere más tiempo, por favor comunicarse al 0963864268 vía WhatsApp.`
+
+    const url = `https://wa.me/${nuevaReserva.cliente_telefono.replace(/\D/g, '')}?text=${encodeURIComponent(mensaje)}`
+    window.open(url, '_blank')
+  }
+
   const RenderizarCelda = (habId: string, fechaStr: string) => {
     const rDelDia = reservas.filter(r => r.habitacion_id === habId && fechaStr >= r.fecha_entrada && fechaStr <= r.fecha_salida)
-    
-    if (rDelDia.length === 0) {
-      return (
-        <td 
-          onClick={() => abrirModalNueva(habId, fechaStr)}
-          className="border h-14 cursor-pointer hover:bg-gray-50 transition-colors"
-        />
-      )
-    }
+    if (rDelDia.length === 0) return <td onClick={() => abrirModalNueva(habId, fechaStr)} className="border h-14 cursor-pointer hover:bg-gray-50 transition-colors" />
 
     const saliendo = rDelDia.find(r => r.fecha_salida === fechaStr)
     const entrando = rDelDia.find(r => r.fecha_entrada === fechaStr)
@@ -92,31 +126,19 @@ export default function ReservasPage() {
     else if (ocupadoTotal) backgroundStyle = { backgroundColor: ocupadoTotal.color }
 
     return (
-      <td 
-        className="border h-14 p-0 relative cursor-pointer overflow-hidden text-[6px] font-bold uppercase italic leading-tight" 
-        style={backgroundStyle}
-      >
+      <td className="border h-14 p-0 relative cursor-pointer overflow-hidden text-[6px] font-bold uppercase italic leading-tight" style={backgroundStyle}>
         {saliendo && (
-          <div 
-            className="absolute bottom-0.5 left-0.5 text-white drop-shadow-md z-10"
-            onClick={(e) => { e.stopPropagation(); abrirModalEditar(saliendo); }}
-          >
+          <div className="absolute bottom-0.5 left-0.5 text-white drop-shadow-md z-10" onClick={(e) => { e.stopPropagation(); abrirModalEditar(saliendo); }}>
             {saliendo.huesped_nombre.split(' ')[0]}
           </div>
         )}
         {entrando && (
-          <div 
-            className="absolute top-0.5 right-0.5 text-white drop-shadow-md z-10 text-right"
-            onClick={(e) => { e.stopPropagation(); abrirModalEditar(entrando); }}
-          >
+          <div className="absolute top-0.5 right-0.5 text-white drop-shadow-md z-10 text-right" onClick={(e) => { e.stopPropagation(); abrirModalEditar(entrando); }}>
             {entrando.huesped_nombre.split(' ')[0]}
           </div>
         )}
         {ocupadoTotal && !saliendo && !entrando && (
-          <div 
-            className="flex items-center justify-center h-full text-white p-0.5 text-center text-[7px]"
-            onClick={() => abrirModalEditar(ocupadoTotal)}
-          >
+          <div className="flex items-center justify-center h-full text-white p-0.5 text-center text-[7px]" onClick={() => abrirModalEditar(ocupadoTotal)}>
             {ocupadoTotal.huesped_nombre}
           </div>
         )}
@@ -140,17 +162,6 @@ export default function ReservasPage() {
     setNuevaReserva(reserva)
     setMostrarModal(true)
   }
-
-  const calcularNoches = () => {
-    if (!nuevaReserva.fecha_entrada || !nuevaReserva.fecha_salida) return 1
-    const inicio = new Date(nuevaReserva.fecha_entrada)
-    const fin = new Date(nuevaReserva.fecha_salida)
-    const diff = Math.ceil((fin.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24))
-    return diff < 1 ? 1 : diff
-  }
-
-  const valorTotal = nuevaReserva.num_personas * nuevaReserva.precio_persona * calcularNoches()
-  const saldoPendiente = valorTotal - nuevaReserva.anticipo
 
   const guardarReserva = async () => {
     if (!nuevaReserva.huesped_nombre) return alert("Nombre obligatorio")
@@ -191,14 +202,13 @@ export default function ReservasPage() {
     <main className="min-h-screen bg-gray-50 flex flex-col font-sans">
       <nav className="bg-gray-900 text-white p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg">
         <Link href="/dashboard" className="text-[9px] font-black uppercase bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700">←</Link>
-        <h1 className="font-black italic uppercase text-[10px] text-blue-400">Cojimíes Booking</h1>
+        <h1 className="font-black italic uppercase text-[10px] text-blue-400">LA POSADA DE FRANK</h1>
         <input type="date" className="bg-gray-800 text-[10px] p-1.5 rounded text-white outline-none" onChange={(e) => setFechaBase(new Date(e.target.value))} />
       </nav>
 
       <div className="flex-1 overflow-auto bg-white">
         <table className="w-full border-collapse table-fixed min-w-[1200px]">
           <thead>
-            {/* Fila de Mes y Año */}
             <tr className="bg-gray-800 text-white text-[10px] font-bold">
               <th className="sticky left-0 z-50 bg-gray-900 border-r border-gray-700 w-[70px]"></th>
               {dias.map((dia, i) => {
@@ -231,14 +241,12 @@ export default function ReservasPage() {
         </table>
       </div>
 
-      {/* Modal permanece igual para no perder funcionalidad */}
       {mostrarModal && (
         <div className="fixed inset-0 bg-black/70 z-[100] flex justify-center items-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] p-6 w-full max-w-2xl shadow-2xl max-h-[95vh] overflow-y-auto border-t-[10px] border-blue-600">
              <div className="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-100 text-center">
                 <label className="text-[9px] font-black text-blue-500 uppercase block mb-1">Buscar Cliente</label>
-                <select className="w-full p-2 bg-white border rounded-lg font-bold uppercase text-[11px]" 
-                  onChange={(e) => seleccionarClienteExistente(e.target.value)} value={nuevaReserva.cliente_id}>
+                <select className="w-full p-2 bg-white border rounded-lg font-bold uppercase text-[11px]" onChange={(e) => seleccionarClienteExistente(e.target.value)} value={nuevaReserva.cliente_id}>
                   <option value="">-- CLIENTE NUEVO --</option>
                   {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                 </select>
@@ -250,7 +258,7 @@ export default function ReservasPage() {
                   <input type="text" value={nuevaReserva.huesped_nombre} className="w-full p-2 border rounded-lg font-black uppercase text-xs" onChange={e => setNuevaReserva({...nuevaReserva, huesped_nombre: e.target.value})} />
                 </div>
                 
-                <input type="text" placeholder="TELÉFONO" value={nuevaReserva.cliente_telefono} className="p-2 border rounded-lg font-bold text-xs" onChange={e => setNuevaReserva({...nuevaReserva, cliente_telefono: e.target.value})} />
+                <input type="text" placeholder="TELÉFONO (WhatsApp)" value={nuevaReserva.cliente_telefono} className="p-2 border rounded-lg font-bold text-xs" onChange={e => setNuevaReserva({...nuevaReserva, cliente_telefono: e.target.value})} />
                 <input type="text" placeholder="CIUDAD" value={nuevaReserva.cliente_ciudad} className="p-2 border rounded-lg font-bold uppercase text-xs" onChange={e => setNuevaReserva({...nuevaReserva, cliente_ciudad: e.target.value})} />
 
                 <div className="md:col-span-2 grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-xl border">
@@ -286,9 +294,18 @@ export default function ReservasPage() {
                 </div>
              </div>
              
-             <div className="flex gap-3 mt-6">
-                <button className="flex-1 bg-gray-100 p-3 rounded-xl font-black uppercase text-[10px]" onClick={() => setMostrarModal(false)}>Cancelar</button>
-                <button className="flex-1 bg-blue-600 text-white p-3 rounded-xl font-black uppercase text-[10px] shadow-lg" onClick={guardarReserva}>Confirmar</button>
+             <div className="flex flex-col gap-3 mt-6">
+                <button 
+                  onClick={enviarWhatsApp}
+                  disabled={!nuevaReserva.cliente_telefono}
+                  className="w-full bg-green-500 hover:bg-green-600 text-white p-3 rounded-xl font-black uppercase text-[10px] shadow-lg flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  <span className="text-base">💬</span> Enviar Comprobante por WhatsApp
+                </button>
+                <div className="flex gap-3">
+                  <button className="flex-1 bg-gray-100 p-3 rounded-xl font-black uppercase text-[10px]" onClick={() => setMostrarModal(false)}>Cancelar</button>
+                  <button className="flex-1 bg-blue-600 text-white p-3 rounded-xl font-black uppercase text-[10px] shadow-lg" onClick={guardarReserva}>Confirmar Reserva</button>
+                </div>
              </div>
           </div>
         </div>
