@@ -4,7 +4,6 @@ import { supabase } from '../../lib/supabase'
 import Link from 'next/link'
 
 export default function GestionHabitaciones() {
-  // Según tu foto Bucket.JPG, el nombre es este:
   const BUCKET_NAME = 'fotos-habitaciones'; 
 
   const [habitaciones, setHabitaciones] = useState<any[]>([])
@@ -18,7 +17,7 @@ export default function GestionHabitaciones() {
   useEffect(() => { cargarHabitaciones() }, [])
 
   async function cargarHabitaciones() {
-    const { data } = await supabase.from('habitaciones').select('*').order('creado_at', { ascending: false })
+    const { data } = await supabase.from('habitaciones').select('*').order('nombre', { ascending: true })
     if (data) setHabitaciones(data)
   }
 
@@ -28,10 +27,8 @@ export default function GestionHabitaciones() {
     let urlPublica = ''
 
     if (file) {
-      // Nombre de archivo limpio: marca de tiempo + nombre original sin espacios
       const fileName = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`
-      
-      const { data: storageData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from(BUCKET_NAME)
         .upload(fileName, file)
 
@@ -46,7 +43,7 @@ export default function GestionHabitaciones() {
     }
 
     const datos: any = {
-      nombre,
+      nombre: nombre.toUpperCase(),
       precio_persona_noche: parseFloat(precio),
       capacidad: parseInt(capacidad)
     }
@@ -59,37 +56,72 @@ export default function GestionHabitaciones() {
     if (dbError) {
       alert("Error en DB: " + dbError.message)
     } else {
-      alert("¡Guardado correctamente!");
-      setNombre(''); setPrecio(''); setCapacidad('1'); setFile(null); setEditandoId(null);
+      alert(editandoId ? "¡Habitación actualizada!" : "¡Habitación creada!");
+      cancelarEdicion();
       cargarHabitaciones();
     }
     setSubiendo(false)
   }
 
+  const eliminarHabitacion = async (id: string, nombreHab: string) => {
+    if (confirm(`¿Estás seguro de eliminar la habitación ${nombreHab}?`)) {
+      const { error } = await supabase.from('habitaciones').delete().eq('id', id)
+      if (error) alert("Error al eliminar: " + error.message)
+      else cargarHabitaciones()
+    }
+  }
+
+  const cancelarEdicion = () => {
+    setEditandoId(null)
+    setNombre('')
+    setPrecio('')
+    setCapacidad('1')
+    setFile(null)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20 font-sans">
-      <nav className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-50">
-        <Link href="/dashboard" className="font-black text-blue-600 text-xs">← PANEL</Link>
-        <h1 className="font-black uppercase italic text-gray-800 tracking-tighter">Habitaciones</h1>
+      <nav className="bg-gray-900 p-4 shadow-lg flex justify-between items-center sticky top-0 z-50">
+        <Link href="/dashboard" className="bg-gray-800 text-white px-3 py-1.5 rounded-lg font-black text-[10px] border border-gray-700">← PANEL</Link>
+        <h1 className="font-black uppercase italic text-blue-400 tracking-tighter text-sm">Hotel La Posada de Frank</h1>
         <div className="w-8"></div>
       </nav>
 
       <div className="p-4 max-w-xl mx-auto space-y-6">
         <form onSubmit={handleGuardar} className="bg-white p-6 rounded-[2.5rem] shadow-xl space-y-4 border border-gray-100">
-          <input type="text" placeholder="Nombre" value={nombre} className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold" onChange={(e) => setNombre(e.target.value)} required />
+          <h2 className="text-[10px] font-black uppercase text-gray-400 mb-2">
+            {editandoId ? '📝 Editando Habitación' : '✨ Nueva Habitación'}
+          </h2>
+          <input type="text" placeholder="Nombre (Ej: Suite 101)" value={nombre} className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold uppercase" onChange={(e) => setNombre(e.target.value)} required />
           <div className="grid grid-cols-2 gap-4">
-            <input type="number" placeholder="Precio $" value={precio} className="p-4 bg-gray-50 rounded-2xl outline-none font-bold text-green-600" onChange={(e) => setPrecio(e.target.value)} required />
-            <input type="number" placeholder="Capacidad" value={capacidad} className="p-4 bg-gray-50 rounded-2xl outline-none font-bold text-blue-600" onChange={(e) => setCapacidad(e.target.value)} required />
+            <div>
+              <label className="text-[9px] font-black ml-2 uppercase text-gray-400">Precio p/p</label>
+              <input type="number" placeholder="Precio $" value={precio} className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-green-600" onChange={(e) => setPrecio(e.target.value)} required />
+            </div>
+            <div>
+              <label className="text-[9px] font-black ml-2 uppercase text-gray-400">Capacidad</label>
+              <input type="number" placeholder="Personas" value={capacidad} className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-blue-600" onChange={(e) => setCapacidad(e.target.value)} required />
+            </div>
           </div>
           <div className="border-2 border-dashed border-gray-200 p-6 rounded-3xl text-center bg-gray-50">
             <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} className="text-[10px] w-full" />
+            <p className="text-[8px] text-gray-400 mt-2 uppercase font-bold italic">Opcional: Subir nueva foto</p>
           </div>
-          <button disabled={subiendo} className="w-full bg-blue-600 p-4 rounded-2xl font-black text-white shadow-lg uppercase text-xs">
-            {subiendo ? 'Subiendo...' : 'Publicar Habitación'}
-          </button>
+          
+          <div className="flex gap-2">
+            {editandoId && (
+              <button type="button" onClick={cancelarEdicion} className="flex-1 bg-gray-200 p-4 rounded-2xl font-black text-gray-600 uppercase text-[10px]">
+                Cancelar
+              </button>
+            )}
+            <button disabled={subiendo} className={`flex-[2] ${editandoId ? 'bg-orange-500' : 'bg-blue-600'} p-4 rounded-2xl font-black text-white shadow-lg uppercase text-[10px]`}>
+              {subiendo ? 'Procesando...' : editandoId ? 'Actualizar Cambios' : 'Publicar Habitación'}
+            </button>
+          </div>
         </form>
 
         <div className="space-y-4">
+          <h3 className="text-[10px] font-black uppercase text-gray-400 ml-2 italic">Lista de Habitaciones</h3>
           {habitaciones.map((hab) => (
             <div key={hab.id} className="bg-white p-3 rounded-[2rem] shadow-sm flex items-center gap-4 border border-gray-50">
               <div className="w-20 h-20 rounded-2xl overflow-hidden bg-gray-100 shrink-0 border border-gray-100">
@@ -101,9 +133,11 @@ export default function GestionHabitaciones() {
               </div>
               <div className="flex-1">
                 <h3 className="font-black text-xs uppercase text-gray-700">{hab.nombre}</h3>
-                <p className="text-green-600 font-black text-sm">${hab.precio_persona_noche}</p>
+                <p className="text-green-600 font-black text-sm">${hab.precio_persona_noche} <span className="text-gray-400 text-[9px] font-normal italic">/ noche</span></p>
+                <p className="text-blue-500 font-bold text-[9px] uppercase">Capacidad: {hab.capacidad} pers.</p>
                 <div className="flex gap-2 mt-2">
-                  <button onClick={() => {setEditandoId(hab.id); setNombre(hab.nombre); setPrecio(hab.precio_persona_noche); setCapacidad(hab.capacidad)}} className="text-[9px] font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl uppercase">Editar</button>
+                  <button onClick={() => {setEditandoId(hab.id); setNombre(hab.nombre); setPrecio(hab.precio_persona_noche.toString()); setCapacidad(hab.capacidad.toString())}} className="text-[8px] font-black text-blue-600 bg-blue-50 px-4 py-2 rounded-xl uppercase border border-blue-100">Editar</button>
+                  <button onClick={() => eliminarHabitacion(hab.id, hab.nombre)} className="text-[8px] font-black text-red-600 bg-red-50 px-4 py-2 rounded-xl uppercase border border-red-100">Eliminar</button>
                 </div>
               </div>
             </div>
