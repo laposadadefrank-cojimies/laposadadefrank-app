@@ -79,6 +79,7 @@ export default function ReportesPage() {
     
     const tableData = reservas.map(r => [
       r.huesped_nombre,
+      r.num_personas,
       r.habitaciones?.nombre,
       r.fecha_entrada,
       r.fecha_salida,
@@ -88,9 +89,8 @@ export default function ReportesPage() {
       r.forma_pago
     ])
 
-    // Añadir fila de totales al PDF
     tableData.push([
-      { content: 'TOTALES', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: 'TOTALES', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } },
       `$${totalGeneral.toFixed(2)}`,
       `$${totalAnticipos.toFixed(2)}`,
       `$${totalSaldos.toFixed(2)}`,
@@ -98,7 +98,7 @@ export default function ReportesPage() {
     ])
 
     autoTable(doc, {
-      head: [['Cliente', 'Hab.', 'Desde', 'Hasta', 'Total', 'Anticipo', 'Saldo', 'M. Pago']],
+      head: [['Cliente', 'Pax', 'Hab.', 'Desde', 'Hasta', 'Total', 'Anticipo', 'Saldo', 'M. Pago']],
       body: tableData,
       startY: 25,
       theme: 'striped',
@@ -120,7 +120,6 @@ export default function ReportesPage() {
         </div>
       </nav>
 
-      {/* SECCIÓN FILTROS */}
       <div className="bg-white p-6 rounded-[2.5rem] shadow-sm mb-8 border border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
           <label className="text-[9px] font-black uppercase text-gray-400 block ml-2 mb-1">Desde</label>
@@ -146,13 +145,13 @@ export default function ReportesPage() {
         </button>
       </div>
 
-      {/* TABLA RESULTADOS */}
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[1000px]">
+          <table className="w-full text-left border-collapse min-w-[1100px]">
             <thead>
               <tr className="bg-gray-900 text-white text-[10px] uppercase font-black italic">
                 <th className="p-5">Huésped / Info</th>
+                <th className="p-5 text-center">Pax</th>
                 <th className="p-5">Habitación</th>
                 <th className="p-5">Fechas</th>
                 <th className="p-5 text-right">V. Total</th>
@@ -168,6 +167,9 @@ export default function ReportesPage() {
                     <div className="font-black uppercase text-gray-800">{r.huesped_nombre}</div>
                     <div className="text-[9px] text-gray-400 font-bold uppercase">{r.cliente_telefono} - {r.cliente_ciudad}</div>
                   </td>
+                  <td className="p-5 text-center">
+                    <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg font-black">{r.num_personas}</span>
+                  </td>
                   <td className="p-5 font-black text-blue-600 uppercase italic">{r.habitaciones?.nombre}</td>
                   <td className="p-5 text-gray-500 font-bold">
                     <span className="text-green-600">IN: {r.fecha_entrada}</span><br />
@@ -182,10 +184,9 @@ export default function ReportesPage() {
                 </tr>
               ))}
             </tbody>
-            {/* FILA DE TOTALES */}
             <tfoot>
               <tr className="bg-gray-100 border-t-2 border-gray-200">
-                <td colSpan={3} className="p-5 text-right font-black uppercase text-xs italic text-gray-500">Totales Seleccionados:</td>
+                <td colSpan={4} className="p-5 text-right font-black uppercase text-xs italic text-gray-500">Totales Seleccionados:</td>
                 <td className="p-5 text-right font-black text-lg text-gray-900">${totalGeneral.toFixed(2)}</td>
                 <td className="p-5 text-right font-black text-lg text-green-700">${totalAnticipos.toFixed(2)}</td>
                 <td className="p-5 text-right font-black text-lg text-red-700 bg-red-100/50">${totalSaldos.toFixed(2)}</td>
