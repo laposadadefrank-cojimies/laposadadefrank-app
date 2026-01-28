@@ -26,10 +26,10 @@ export default function Dashboard() {
         </button>
       </nav>
 
-      {/* Contenedor de botones principales */}
-      <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mt-10">
+      {/* Contenedor de botones principales - Ahora en cuadrícula de 4 */}
+      <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto mt-10">
         
-        {/* Botón Calendario -> APUNTA A /reservas */}
+        {/* Botón Calendario */}
         <Link 
           href="/reservas" 
           className="bg-white p-10 rounded-[2.5rem] shadow-2xl hover:scale-105 transition transform flex flex-col items-center border-t-8 border-blue-500 group"
@@ -47,6 +47,26 @@ export default function Dashboard() {
           <span className="text-7xl mb-4 group-hover:rotate-6 transition-transform">🏨</span>
           <span className="text-2xl font-black text-gray-800 uppercase italic">Habitaciones</span>
           <p className="text-gray-400 font-bold mt-2 text-xs uppercase tracking-widest text-center">Precios y capacidades</p>
+        </Link>
+
+        {/* Botón Reportes - NUEVO */}
+        <Link 
+          href="/reportes" 
+          className="bg-white p-10 rounded-[2.5rem] shadow-xl hover:scale-105 transition transform flex flex-col items-center border-t-8 border-purple-600 group"
+        >
+          <span className="text-7xl mb-4 group-hover:rotate-6 transition-transform">📊</span>
+          <span className="text-2xl font-black text-gray-800 uppercase italic">Reportes</span>
+          <p className="text-gray-400 font-bold mt-2 text-xs uppercase tracking-widest text-center">Excel, PDF y Finanzas</p>
+        </Link>
+
+        {/* Botón Personal - NUEVO */}
+        <Link 
+          href="/usuarios" 
+          className="bg-white p-10 rounded-[2.5rem] shadow-xl hover:scale-105 transition transform flex flex-col items-center border-t-8 border-orange-500 group"
+        >
+          <span className="text-7xl mb-4 group-hover:rotate-6 transition-transform">👥</span>
+          <span className="text-2xl font-black text-gray-800 uppercase italic">Personal</span>
+          <p className="text-gray-400 font-bold mt-2 text-xs uppercase tracking-widest text-center">Gestionar Usuarios</p>
         </Link>
 
       </div>
