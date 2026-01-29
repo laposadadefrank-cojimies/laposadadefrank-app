@@ -76,48 +76,40 @@ export default function ReservasPage() {
   const valorTotal = nuevaReserva.num_personas * nuevaReserva.precio_persona * calcularNoches()
   const saldoPendiente = valorTotal - nuevaReserva.anticipo
 
+  // --- WHATSAPP CORREGIDO ---
   const enviarWhatsApp = () => {
     if (!nuevaReserva.cliente_telefono) return alert("Falta el número de teléfono");
 
     const habNombre = habitaciones.find(h => h.id === nuevaReserva.habitacion_id)?.nombre || 'Habitación'
     const separador = "---------------------------\n"
     
-    // MENSAJE EXACTO SEGÚN TU SOLICITUD
-    const mensaje = `RESUMEN DE RESERVA - HOTEL LA POSADA DE FRANK\n` +
+    const mensaje = `*RESUMEN DE RESERVA - HOTEL LA POSADA DE FRANK*\n` +
       separador +
-      `Cliente: ${nuevaReserva.huesped_nombre.toUpperCase()}\n` +
+      `*Cliente:* ${nuevaReserva.huesped_nombre.toUpperCase()}\n` +
       separador +
-      `N° Personas: ${nuevaReserva.num_personas}\n` +
+      `*Habitación:* ${habNombre}\n` +
       separador +
-      `Habitación: ${habNombre}\n` +
+      `*Desde:* ${nuevaReserva.fecha_entrada}\n` +
       separador +
-      `Desde: ${nuevaReserva.fecha_entrada}\n` +
+      `*Hasta:* ${nuevaReserva.fecha_salida}\n` +
       separador +
-      `Hasta: ${nuevaReserva.fecha_salida}\n` +
+      `*Valor Total:* $${valorTotal.toFixed(2)}\n` +
       separador +
-      `Valor Total: $${valorTotal.toFixed(2)}\n` +
+      `*Anticipo:* $${nuevaReserva.anticipo.toFixed(2)}\n` +
       separador +
-      `Anticipo: $${nuevaReserva.anticipo.toFixed(2)}\n` +
-      separador +
-      `Medio de Anticipo: ${nuevaReserva.forma_pago}\n` +
-      separador +
-      `Saldo Pendiente: $${saldoPendiente.toFixed(2)}\n` +
-      separador +
-      `Observaciones: ${nuevaReserva.observaciones || 'Ninguna'}\n` +
+      `*Saldo Pendiente:* $${saldoPendiente.toFixed(2)}\n` +
       separador + `\n` +
-      `Recuerde que el saldo pendiente se cancela al momento del Check-in.\n\n` +
-      `INFORMACIÓN IMPORTANTE:\n` +
-      `El Check-in es a partir de las 13:00 PM y el Check-out es hasta las 11:00 AM. Si requiere más tiempo, por favor comunicarse al 0963864268 vía WhatsApp.`
+      `*IMPORTANTE:* Check-in: 12:00 PM | Check-out: 12:00 PM.`;
 
     const telLimpio = nuevaReserva.cliente_telefono.replace(/\D/g, '');
     const url = `https://api.whatsapp.com/send?phone=${telLimpio}&text=${encodeURIComponent(mensaje)}`;
     window.open(url, '_blank');
   }
 
-  // FUNCIÓN PARA ANULAR RESERVA
+  // --- FUNCIÓN ANULAR ---
   const anularReserva = async () => {
     if (!editandoId) return;
-    if (confirm("¿ESTÁS SEGURO DE ANULAR ESTA RESERVA?")) {
+    if (confirm("¿ESTÁS SEGURO DE ANULAR ESTA RESERVA? Esta acción no se puede deshacer.")) {
       const { error } = await supabase.from('reservas').delete().eq('id', editandoId)
       if (error) alert(error.message)
       else {
@@ -176,15 +168,9 @@ export default function ReservasPage() {
     setMostrarModal(true)
   }
 
-  // AJUSTE: Cargar teléfono y ciudad del cliente al editar
   const abrirModalEditar = (reserva: any) => {
     setEditandoId(reserva.id)
-    const infoCliente = clientes.find(c => c.id === reserva.cliente_id)
-    setNuevaReserva({
-      ...reserva,
-      cliente_telefono: infoCliente?.telefono || '',
-      cliente_ciudad: infoCliente?.ciudad || ''
-    })
+    setNuevaReserva(reserva)
     setMostrarModal(true)
   }
 
@@ -227,7 +213,7 @@ export default function ReservasPage() {
     <main className="min-h-screen bg-gray-50 flex flex-col font-sans">
       <nav className="bg-gray-900 text-white p-3 flex justify-between items-center sticky top-0 z-50 shadow-lg">
         <Link href="/dashboard" className="text-[9px] font-black uppercase bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700">←</Link>
-        <h1 className="font-black italic uppercase text-[10px] text-blue-400 tracking-tighter text-center flex-1">LA POSADA DE FRANK</h1>
+        <h1 className="font-black italic uppercase text-[10px] text-blue-400 tracking-tighter">LA POSADA DE FRANK</h1>
         <input type="date" className="bg-gray-800 text-[10px] p-1.5 rounded text-white outline-none" onChange={(e) => setFechaBase(new Date(e.target.value))} />
       </nav>
 
@@ -270,69 +256,56 @@ export default function ReservasPage() {
         <div className="fixed inset-0 bg-black/70 z-[100] flex justify-center items-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] p-6 w-full max-w-2xl shadow-2xl max-h-[95vh] overflow-y-auto border-t-[10px] border-blue-600">
              <div className="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-100 text-center">
-                <label className="text-[9px] font-black text-blue-500 uppercase block mb-1 italic">Seleccionar Cliente Existente</label>
+                <label className="text-[9px] font-black text-blue-500 uppercase block mb-1">Cliente</label>
                 <select className="w-full p-2 bg-white border rounded-lg font-bold uppercase text-[11px]" onChange={(e) => seleccionarClienteExistente(e.target.value)} value={nuevaReserva.cliente_id}>
-                  <option value="">-- CLIENTE NUEVO / MANUAL --</option>
+                  <option value="">-- NUEVO --</option>
                   {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                 </select>
              </div>
 
              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="md:col-span-2">
-                  <label className="text-[9px] font-black text-gray-400 uppercase ml-2">Nombre del Huésped</label>
-                  <input type="text" value={nuevaReserva.huesped_nombre} className="w-full p-2 border rounded-lg font-black uppercase text-xs focus:border-blue-500 outline-none" onChange={e => setNuevaReserva({...nuevaReserva, huesped_nombre: e.target.value})} />
+                  <label className="text-[9px] font-black text-gray-400 uppercase">Huésped</label>
+                  <input type="text" value={nuevaReserva.huesped_nombre} className="w-full p-2 border rounded-lg font-black uppercase text-xs" onChange={e => setNuevaReserva({...nuevaReserva, huesped_nombre: e.target.value})} />
                 </div>
                 
-                <div>
-                  <label className="text-[9px] font-black text-gray-400 uppercase ml-2">Teléfono WhatsApp</label>
-                  <input type="text" placeholder="Ej: 0963864268" value={nuevaReserva.cliente_telefono} className="w-full p-2 border rounded-lg font-bold text-xs outline-none" onChange={e => setNuevaReserva({...nuevaReserva, cliente_telefono: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black text-gray-400 uppercase ml-2">Ciudad de Origen</label>
-                  <input type="text" value={nuevaReserva.cliente_ciudad} className="w-full p-2 border rounded-lg font-bold uppercase text-xs outline-none" onChange={e => setNuevaReserva({...nuevaReserva, cliente_ciudad: e.target.value})} />
-                </div>
+                <input type="text" placeholder="WhatsApp" value={nuevaReserva.cliente_telefono} className="p-2 border rounded-lg font-bold text-xs" onChange={e => setNuevaReserva({...nuevaReserva, cliente_telefono: e.target.value})} />
+                <input type="text" placeholder="Ciudad" value={nuevaReserva.cliente_ciudad} className="p-2 border rounded-lg font-bold uppercase text-xs" onChange={e => setNuevaReserva({...nuevaReserva, cliente_ciudad: e.target.value})} />
 
                 <div className="md:col-span-2 grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-xl border">
-                  <div><label className="text-[9px] font-black text-blue-600 uppercase ml-1">Fecha Entrada</label><input type="date" value={nuevaReserva.fecha_entrada} className="w-full p-1.5 rounded border font-bold text-xs" onChange={e => setNuevaReserva({...nuevaReserva, fecha_entrada: e.target.value})} /></div>
-                  <div><label className="text-[9px] font-black text-red-600 uppercase ml-1">Fecha Salida</label><input type="date" value={nuevaReserva.fecha_salida} className="w-full p-1.5 rounded border font-bold text-xs" onChange={e => setNuevaReserva({...nuevaReserva, fecha_salida: e.target.value})} /></div>
+                  <div><label className="text-[9px] font-black text-blue-600">Entrada</label><input type="date" value={nuevaReserva.fecha_entrada} className="w-full p-1.5 rounded border font-bold text-xs" onChange={e => setNuevaReserva({...nuevaReserva, fecha_entrada: e.target.value})} /></div>
+                  <div><label className="text-[9px] font-black text-red-600">Salida</label><input type="date" value={nuevaReserva.fecha_salida} className="w-full p-1.5 rounded border font-bold text-xs" onChange={e => setNuevaReserva({...nuevaReserva, fecha_salida: e.target.value})} /></div>
                 </div>
 
-                <div><label className="text-[9px] font-black text-gray-400 uppercase ml-2">N° Personas</label><input type="number" value={nuevaReserva.num_personas} className="w-full p-2 border rounded-lg font-bold text-xs" onChange={e => setNuevaReserva({...nuevaReserva, num_personas: parseInt(e.target.value) || 1})} /></div>
-                <div><label className="text-[9px] font-black text-gray-400 uppercase ml-2">Precio por Persona</label><input type="number" value={nuevaReserva.precio_persona} className="w-full p-2 border rounded-lg font-bold text-xs" onChange={e => setNuevaReserva({...nuevaReserva, precio_persona: parseFloat(e.target.value) || 0})} /></div>
+                <div><label className="text-[9px] font-black text-gray-400">Personas</label><input type="number" value={nuevaReserva.num_personas} className="w-full p-2 border rounded-lg font-bold text-xs" onChange={e => setNuevaReserva({...nuevaReserva, num_personas: parseInt(e.target.value) || 1})} /></div>
+                <div><label className="text-[9px] font-black text-gray-400">Precio p/p</label><input type="number" value={nuevaReserva.precio_persona} className="w-full p-2 border rounded-lg font-bold text-xs" onChange={e => setNuevaReserva({...nuevaReserva, precio_persona: parseFloat(e.target.value) || 0})} /></div>
 
-                <div className="md:col-span-2 bg-gray-900 text-white p-4 rounded-2xl flex justify-between items-center shadow-inner">
-                  <div><p className="text-[8px] opacity-50 uppercase font-black text-blue-400">Total Estancia</p><p className="text-2xl font-black italic">${valorTotal.toFixed(2)}</p></div>
-                  <div className="text-right"><p className="text-[8px] opacity-50 uppercase font-black text-red-400">Saldo Pendiente</p><p className="text-2xl font-black italic text-red-400">${saldoPendiente.toFixed(2)}</p></div>
+                <div className="md:col-span-2 bg-gray-900 text-white p-4 rounded-2xl flex justify-between items-center">
+                  <div><p className="text-[8px] opacity-50 uppercase font-black text-blue-400">Total</p><p className="text-2xl font-black italic">${valorTotal.toFixed(2)}</p></div>
+                  <div className="text-right"><p className="text-[8px] opacity-50 uppercase font-black text-red-400">Saldo</p><p className="text-2xl font-black italic text-red-400">${saldoPendiente.toFixed(2)}</p></div>
                 </div>
 
-                <div><label className="text-[9px] font-black text-green-600 uppercase ml-2">Abono / Anticipo</label><input type="number" value={nuevaReserva.anticipo} className="w-full p-2 border-2 border-green-100 rounded-lg font-black text-green-600 text-lg outline-none" onChange={e => setNuevaReserva({...nuevaReserva, anticipo: parseFloat(e.target.value) || 0})} /></div>
+                <div><label className="text-[9px] font-black text-green-600 uppercase">Anticipo</label><input type="number" value={nuevaReserva.anticipo} className="w-full p-2 border-2 border-green-100 rounded-lg font-black text-green-600" onChange={e => setNuevaReserva({...nuevaReserva, anticipo: parseFloat(e.target.value) || 0})} /></div>
                 <div>
-                  <label className="text-[9px] font-black uppercase ml-2 text-gray-400">Medio de Pago</label>
-                  <select className="w-full p-2 border rounded-lg font-bold text-xs h-[46px] outline-none" value={nuevaReserva.forma_pago} onChange={e => setNuevaReserva({...nuevaReserva, forma_pago: e.target.value})}>
-                    <option>Efectivo</option>
-                    <option>Transferencia</option>
-                    <option>Deposito</option>
-                    <option>Airbnb</option>
+                  <label className="text-[9px] font-black uppercase">Forma</label>
+                  <select className="w-full p-2 border rounded-lg font-bold text-xs h-[46px]" value={nuevaReserva.forma_pago} onChange={e => setNuevaReserva({...nuevaReserva, forma_pago: e.target.value})}>
+                    <option>Efectivo</option><option>Transferencia</option><option>Airbnb</option>
                   </select>
                 </div>
-
-                <div className="md:col-span-2">
-                  <label className="text-[9px] font-black uppercase text-orange-500 ml-2">Observaciones (Información Arribo)</label>
-                  <textarea value={nuevaReserva.observaciones} placeholder="Escribe aquí detalles importantes para el cliente..." className="w-full p-2 border rounded-lg font-medium text-[11px] h-20 outline-none focus:border-orange-500" onChange={e => setNuevaReserva({...nuevaReserva, observaciones: e.target.value})} />
-                </div>
+                <div className="md:col-span-2"><textarea placeholder="Observaciones" value={nuevaReserva.observaciones} className="w-full p-2 border rounded-lg font-medium text-[11px] h-16" onChange={e => setNuevaReserva({...nuevaReserva, observaciones: e.target.value})} /></div>
              </div>
              
              <div className="flex flex-col gap-3 mt-6">
-                <button onClick={enviarWhatsApp} type="button" className="w-full bg-green-500 hover:bg-green-600 text-white p-4 rounded-xl font-black uppercase text-[11px] shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95">
-                  <span className="text-xl">💬</span> Enviar Comprobante WhatsApp
+                <button onClick={enviarWhatsApp} type="button" className="w-full bg-green-500 hover:bg-green-600 text-white p-4 rounded-xl font-black uppercase text-[11px] shadow-lg flex items-center justify-center gap-2">
+                  <span className="text-xl">💬</span> WhatsApp
                 </button>
                 
                 <div className="flex gap-2">
                   {editandoId && (
-                    <button onClick={anularReserva} className="flex-1 bg-red-100 text-red-600 p-3 rounded-xl font-black uppercase text-[10px] border border-red-200 hover:bg-red-200 transition-colors">Anular</button>
+                    <button onClick={anularReserva} className="flex-1 bg-red-100 text-red-600 p-3 rounded-xl font-black uppercase text-[10px] border border-red-200">Anular</button>
                   )}
-                  <button className="flex-1 bg-gray-100 p-3 rounded-xl font-black uppercase text-[10px] hover:bg-gray-200" onClick={() => setMostrarModal(false)}>Cerrar</button>
-                  <button className="flex-1 bg-blue-600 text-white p-3 rounded-xl font-black uppercase text-[10px] shadow-lg hover:bg-blue-700" onClick={guardarReserva}>Guardar Cambios</button>
+                  <button className="flex-1 bg-gray-100 p-3 rounded-xl font-black uppercase text-[10px]" onClick={() => setMostrarModal(false)}>Cerrar</button>
+                  <button className="flex-1 bg-blue-600 text-white p-3 rounded-xl font-black uppercase text-[10px] shadow-lg" onClick={guardarReserva}>Guardar</button>
                 </div>
              </div>
           </div>
