@@ -28,12 +28,7 @@ export default function ReportesPage() {
   async function aplicarFiltros() {
     setCargando(true)
     try {
-      // CAMBIO: Ahora traemos también el email desde la tabla 'profiles'
-      let query = supabase.from('reservas').select(`
-        *, 
-        habitaciones(nombre),
-        profiles:creado_por(email)
-      `)
+      let query = supabase.from('reservas').select(`*, habitaciones(nombre)`)
 
       if (filtroFechaInicio) query = query.gte('fecha_entrada', filtroFechaInicio)
       if (filtroFechaFin) query = query.lte('fecha_entrada', filtroFechaFin)
@@ -50,6 +45,7 @@ export default function ReportesPage() {
     setCargando(false)
   }
 
+  // Cálculos de Totales
   const totalGeneral = reservas.reduce((acc, r) => acc + (r.valor_total || 0), 0)
   const totalAnticipos = reservas.reduce((acc, r) => acc + (r.anticipo || 0), 0)
   const totalSaldos = reservas.reduce((acc, r) => acc + (r.saldo_pendiente || 0), 0)
@@ -57,7 +53,6 @@ export default function ReportesPage() {
   const exportarExcel = () => {
     const dataParaExcel = reservas.map(r => ({
       Cliente: r.huesped_nombre,
-      CreadoPor: r.profiles?.email || 'Sistema', // Nueva columna
       Personas: r.num_personas,
       Habitación: r.habitaciones?.nombre || 'N/A',
       Desde: r.fecha_entrada,
@@ -65,7 +60,10 @@ export default function ReportesPage() {
       'Valor Total': r.valor_total,
       'Valor Anticipo': r.anticipo,
       'Saldo Pendiente': r.saldo_pendiente,
-      'Medio Pago': r.forma_pago
+      'Medio Pago': r.forma_pago,
+      Teléfono: r.cliente_telefono || '',
+      Ciudad: r.cliente_ciudad || '',
+      Observaciones: r.observaciones || ''
     }))
 
     const ws = XLSX.utils.json_to_sheet(dataParaExcel)
@@ -81,7 +79,6 @@ export default function ReportesPage() {
     
     const tableData = reservas.map(r => [
       r.huesped_nombre,
-      r.profiles?.email?.split('@')[0] || 'Sist.', // Email corto para PDF
       r.num_personas,
       r.habitaciones?.nombre,
       r.fecha_entrada,
@@ -92,12 +89,20 @@ export default function ReportesPage() {
       r.forma_pago
     ])
 
+    tableData.push([
+      { content: 'TOTALES', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } },
+      `$${totalGeneral.toFixed(2)}`,
+      `$${totalAnticipos.toFixed(2)}`,
+      `$${totalSaldos.toFixed(2)}`,
+      ''
+    ])
+
     autoTable(doc, {
-      head: [['Cliente', 'Creador', 'Pax', 'Hab.', 'Desde', 'Hasta', 'Total', 'Anticipo', 'Saldo', 'M. Pago']],
+      head: [['Cliente', 'Pax', 'Hab.', 'Desde', 'Hasta', 'Total', 'Anticipo', 'Saldo', 'M. Pago']],
       body: tableData,
       startY: 25,
       theme: 'striped',
-      styles: { fontSize: 7 }, // Bajé un poco el tamaño por la nueva columna
+      styles: { fontSize: 8 },
       headStyles: { fillColor: [31, 41, 55] }
     })
 
@@ -116,7 +121,6 @@ export default function ReportesPage() {
       </nav>
 
       <div className="bg-white p-6 rounded-[2.5rem] shadow-sm mb-8 border border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Filtros se mantienen igual... */}
         <div>
           <label className="text-[9px] font-black uppercase text-gray-400 block ml-2 mb-1">Desde</label>
           <input type="date" className="w-full p-3 bg-gray-50 rounded-2xl outline-none font-bold text-xs" value={filtroFechaInicio} onChange={(e) => setFiltroFechaInicio(e.target.value)} />
@@ -146,7 +150,7 @@ export default function ReportesPage() {
           <table className="w-full text-left border-collapse min-w-[1100px]">
             <thead>
               <tr className="bg-gray-900 text-white text-[10px] uppercase font-black italic">
-                <th className="p-5">Huésped / Creador</th>
+                <th className="p-5">Huésped / Info</th>
                 <th className="p-5 text-center">Pax</th>
                 <th className="p-5">Habitación</th>
                 <th className="p-5">Fechas</th>
@@ -161,13 +165,13 @@ export default function ReportesPage() {
                 <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                   <td className="p-5">
                     <div className="font-black uppercase text-gray-800">{r.huesped_nombre}</div>
-                    <div className="text-[9px] text-blue-500 font-bold uppercase italic">By: {r.profiles?.email || 'Admin'}</div>
+                    <div className="text-[9px] text-gray-400 font-bold uppercase">{r.cliente_telefono} - {r.cliente_ciudad}</div>
                   </td>
                   <td className="p-5 text-center">
                     <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg font-black">{r.num_personas}</span>
                   </td>
                   <td className="p-5 font-black text-blue-600 uppercase italic">{r.habitaciones?.nombre}</td>
-                  <td className="p-5 text-gray-500 font-bold text-[10px]">
+                  <td className="p-5 text-gray-500 font-bold">
                     <span className="text-green-600">IN: {r.fecha_entrada}</span><br />
                     <span className="text-red-500">OUT: {r.fecha_salida}</span>
                   </td>
@@ -180,7 +184,15 @@ export default function ReportesPage() {
                 </tr>
               ))}
             </tbody>
-            {/* Footer se mantiene igual... */}
+            <tfoot>
+              <tr className="bg-gray-100 border-t-2 border-gray-200">
+                <td colSpan={4} className="p-5 text-right font-black uppercase text-xs italic text-gray-500">Totales Seleccionados:</td>
+                <td className="p-5 text-right font-black text-lg text-gray-900">${totalGeneral.toFixed(2)}</td>
+                <td className="p-5 text-right font-black text-lg text-green-700">${totalAnticipos.toFixed(2)}</td>
+                <td className="p-5 text-right font-black text-lg text-red-700 bg-red-100/50">${totalSaldos.toFixed(2)}</td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
