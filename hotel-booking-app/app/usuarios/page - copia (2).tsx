@@ -16,6 +16,7 @@ export default function UsuariosPage() {
   }, [])
 
   async function cargarUsuarios() {
+    // CAMBIO: Usamos 'profiles' que es la tabla que tiene los datos de Donna y Frank
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -33,33 +34,21 @@ export default function UsuariosPage() {
     setCargando(true)
     
     if (editandoId) {
-      // 1. Actualizamos el Rol en Profiles
-      const { error: errorProfile } = await supabase
+      // CAMBIO: Actualizamos el campo 'role' en la tabla 'profiles'
+      const { error } = await supabase
         .from('profiles')
         .update({ role: rol })
         .eq('id', editandoId)
 
-      if (errorProfile) {
-        alert("Error al actualizar perfil: " + errorProfile.message)
-      } else {
-        // 2. Si se escribió una nueva clave, la actualizamos en Auth
-        if (password.trim() !== "") {
-          const { error: errorAuth } = await supabase.auth.admin.updateUserById(
-            editandoId,
-            { password: password }
-          )
-          // Nota: updateByAdmin requiere service_role, si da error de permisos, 
-          // es mejor usar la gestión de reset de contraseña o invitar al usuario.
-          if (errorAuth) console.log("Nota: La clave no se pudo actualizar por permisos de Supabase Auth.")
-        }
-        alert("¡Datos actualizados con éxito!")
-      }
+      if (error) alert("Error: " + error.message)
+      else alert("¡Rol actualizado con éxito!")
     } else {
-      // CREACIÓN DE NUEVO USUARIO
+      // CREACIÓN
       const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) {
         alert("Error en Auth: " + error.message)
       } else if (data.user) {
+        // CAMBIO: Insertamos en 'profiles' usando el campo 'role'
         await supabase.from('profiles').insert([
           { id: data.user.id, email: email, role: rol }
         ])
@@ -82,8 +71,8 @@ export default function UsuariosPage() {
   const prepararEdicion = (u: any) => {
     setEditandoId(u.id)
     setEmail(u.email)
+    // CAMBIO: Usamos 'u.role' que es el nombre en tu base de datos
     setRol(u.role || 'recepcionista')
-    setPassword('') // Siempre vacío al empezar a editar por seguridad
   }
 
   const resetearFormulario = () => {
@@ -94,7 +83,7 @@ export default function UsuariosPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans text-gray-900">
+    <main className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
       <nav className="mb-8 flex justify-between items-center max-w-6xl mx-auto">
         <Link href="/dashboard" className="bg-gray-900 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg">← Volver</Link>
         <h1 className="text-xl font-black italic uppercase text-gray-800 tracking-tighter text-center flex-1">Gestión de Personal</h1>
@@ -113,12 +102,12 @@ export default function UsuariosPage() {
               <input type="email" placeholder="ejemplo@hotel.com" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs border border-transparent focus:border-orange-500 disabled:opacity-50" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={!!editandoId} />
             </div>
 
-            <div>
-              <label className="text-[9px] font-black uppercase text-gray-400 ml-2">
-                {editandoId ? 'Nueva Contraseña (Dejar vacío para no cambiar)' : 'Contraseña Inicial'}
-              </label>
-              <input type="password" placeholder="Mínimo 6 caracteres" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs border border-transparent focus:border-orange-500" value={password} onChange={(e) => setPassword(e.target.value)} required={!editandoId} />
-            </div>
+            {!editandoId && (
+              <div>
+                <label className="text-[9px] font-black uppercase text-gray-400 ml-2">Contraseña Inicial</label>
+                <input type="password" placeholder="Mínimo 6 caracteres" className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-xs border border-transparent focus:border-orange-500" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              </div>
+            )}
 
             <div>
               <label className="text-[9px] font-black uppercase text-gray-400 ml-2">Asignar Rol</label>
@@ -146,7 +135,7 @@ export default function UsuariosPage() {
               <div key={u.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col gap-4">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-xl text-gray-500">👤</div>
+                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-xl">👤</div>
                     <div>
                       <p className="font-black text-xs text-gray-800">{u.email}</p>
                       <span className={`text-[8px] font-black uppercase px-3 py-1 rounded-full ${u.role === 'admin' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'}`}>
