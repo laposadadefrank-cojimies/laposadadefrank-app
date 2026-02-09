@@ -1,3 +1,11 @@
+# La Posada de Frank - Sistema de Reservas
+
+### Reglas de Operación:
+* **Check-in:** Después de las 12:00 PM.
+* **Check-out:** Antes de las 12:00 PM.
+* **Disponibilidad:** Si un cliente reserva del 1 al 5 de febrero, la habitación queda disponible el 5 de febrero a partir de las 12:00 PM para el siguiente huésped.
+
+---
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
 
 ## Getting Started
